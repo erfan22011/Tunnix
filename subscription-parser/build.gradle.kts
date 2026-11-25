@@ -25,7 +25,7 @@ android {
 dependencies {
     implementation(project(":core-models"))
     implementation(libs.okhttp)
-    implementation(libs.okhttp-logging)
+    implementation(libs.okhttp.logging)
     implementation(libs.gson)
     implementation(libs.kotlinx.coroutines.core)
 
