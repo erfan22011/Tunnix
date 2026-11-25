@@ -3,17 +3,12 @@ package com.tunnix.ui.navigation
 import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.LaunchedEffect
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.tunnix.core.models.AppLanguage
 import com.tunnix.core.models.DownloadSettingsConfig
-import com.tunnix.core.models.NetworkType
-import com.tunnix.core.models.ProtocolType
 import com.tunnix.core.models.ServerConfig
 import com.tunnix.core.models.ThemeMode
 import com.tunnix.core.models.TrafficStats
@@ -25,66 +20,40 @@ import com.tunnix.ui.theme.TunnixTheme
 
 @Composable
 fun TunnixNavigation(
-    initialLanguage: AppLanguage = AppLanguage.PERSIAN,
-    initialTheme: ThemeMode = ThemeMode.DARK,
-    initialSubscriptionUrl: String? = null
+    language: AppLanguage = AppLanguage.PERSIAN,
+    onLanguageChange: (AppLanguage) -> Unit = {},
+    themeMode: ThemeMode = ThemeMode.DARK,
+    onThemeChange: (ThemeMode) -> Unit = {},
+    vpnState: VpnState = VpnState.Disconnected,
+    trafficStats: TrafficStats = TrafficStats(),
+    servers: List<ServerConfig> = emptyList(),
+    selectedServer: ServerConfig? = null,
+    onSelectServer: (ServerConfig) -> Unit = {},
+    onToggleConnection: () -> Unit = {},
+    onSubmitSubscription: (String) -> Unit = {},
+    isLoading: Boolean = false,
+    errorMessage: String? = null,
+    downloadSettings: DownloadSettingsConfig = DownloadSettingsConfig.DEFAULT,
+    onSaveDownloadSettings: (DownloadSettingsConfig) -> Unit = {},
+    onChangeSubscription: () -> Unit = {},
+    hasSubscription: Boolean = false
 ) {
     val navController = rememberNavController()
+    val startDestination = if (hasSubscription) "main" else "redeem"
 
-    var language by remember { mutableStateOf(initialLanguage) }
-    var themeMode by remember { mutableStateOf(initialTheme) }
-    var downloadSettings by remember { mutableStateOf(DownloadSettingsConfig.DEFAULT) }
-
-    var vpnState by remember { mutableStateOf<VpnState>(VpnState.Disconnected) }
-    var trafficStats by remember { mutableStateOf(TrafficStats()) }
-
-    // Sample default servers for UI demonstration before Phase 3 parser integrates live subs
-    var servers by remember {
-        mutableStateOf(
-            listOf(
-                ServerConfig(
-                    id = "nl-1",
-                    name = "Netherlands",
-                    address = "ovv.pelqexa.ir",
-                    port = 2053,
-                    protocol = ProtocolType.VLESS,
-                    network = NetworkType.XHTTP,
-                    countryCode = "NL"
-                ),
-                ServerConfig(
-                    id = "nl-2",
-                    name = "Netherlands 2",
-                    address = "ovv.pelqexa.ir",
-                    port = 2053,
-                    protocol = ProtocolType.VLESS,
-                    network = NetworkType.XHTTP,
-                    countryCode = "NL"
-                ),
-                ServerConfig(
-                    id = "ch-1",
-                    name = "Swiss",
-                    address = "ovv.genus.ir",
-                    port = 2053,
-                    protocol = ProtocolType.VLESS,
-                    network = NetworkType.XHTTP,
-                    countryCode = "CH"
-                ),
-                ServerConfig(
-                    id = "ch-2",
-                    name = "Swiss 2",
-                    address = "ovv.genus.ir",
-                    port = 2053,
-                    protocol = ProtocolType.VLESS,
-                    network = NetworkType.XHTTP,
-                    countryCode = "CH"
-                )
-            )
-        )
+    // Synchronize navigation if subscription status changes externally
+    LaunchedEffect(hasSubscription) {
+        val currentRoute = navController.currentBackStackEntry?.destination?.route
+        if (hasSubscription && currentRoute == "redeem") {
+            navController.navigate("main") {
+                popUpTo("redeem") { inclusive = true }
+            }
+        } else if (!hasSubscription && currentRoute == "main") {
+            navController.navigate("redeem") {
+                popUpTo("main") { inclusive = true }
+            }
+        }
     }
-
-    var selectedServer by remember { mutableStateOf<ServerConfig?>(servers.firstOrNull()) }
-
-    val startDestination = if (initialSubscriptionUrl.isNullOrBlank()) "redeem" else "main"
 
     TunnixTheme(themeMode = themeMode, language = language) {
         NavHost(
@@ -98,16 +67,17 @@ fun TunnixNavigation(
             composable("redeem") {
                 RedeemScreen(
                     currentLanguage = language,
-                    onLanguageChange = { language = it },
+                    onLanguageChange = onLanguageChange,
                     currentTheme = themeMode,
                     onThemeToggle = {
-                        themeMode = if (themeMode == ThemeMode.DARK) ThemeMode.LIGHT else ThemeMode.DARK
+                        val next = if (themeMode == ThemeMode.DARK) ThemeMode.LIGHT else ThemeMode.DARK
+                        onThemeChange(next)
                     },
-                    onSubmitSubscription = { validUrl ->
-                        navController.navigate("main") {
-                            popUpTo("redeem") { inclusive = true }
-                        }
-                    }
+                    onSubmitSubscription = { input ->
+                        onSubmitSubscription(input)
+                    },
+                    isLoading = isLoading,
+                    errorMessage = errorMessage
                 )
             }
 
@@ -117,19 +87,11 @@ fun TunnixNavigation(
                     trafficStats = trafficStats,
                     servers = servers,
                     selectedServer = selectedServer,
-                    onSelectServer = { selectedServer = it },
-                    onToggleConnection = {
-                        // Toggle mock UI state for testing
-                        vpnState = when (vpnState) {
-                            is VpnState.Disconnected -> VpnState.Connecting
-                            is VpnState.Connecting -> VpnState.Disconnected
-                            is VpnState.Connected -> VpnState.Disconnected
-                            is VpnState.Error -> VpnState.Connecting
-                            is VpnState.Reconnecting -> VpnState.Disconnected
-                        }
-                    },
+                    onSelectServer = onSelectServer,
+                    onToggleConnection = onToggleConnection,
                     onNavigateToSettings = { navController.navigate("settings") },
                     onChangeSubscription = {
+                        onChangeSubscription()
                         navController.navigate("redeem") {
                             popUpTo("main") { inclusive = true }
                         }
@@ -141,11 +103,11 @@ fun TunnixNavigation(
             composable("settings") {
                 SettingsScreen(
                     currentLanguage = language,
-                    onLanguageChange = { language = it },
+                    onLanguageChange = onLanguageChange,
                     currentTheme = themeMode,
-                    onThemeChange = { themeMode = it },
+                    onThemeChange = onThemeChange,
                     downloadSettings = downloadSettings,
-                    onSaveDownloadSettings = { downloadSettings = it },
+                    onSaveDownloadSettings = onSaveDownloadSettings,
                     onNavigateBack = { navController.popBackStack() }
                 )
             }
