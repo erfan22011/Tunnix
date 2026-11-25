@@ -25,6 +25,8 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.RadioButtonDefaults
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -58,6 +60,7 @@ fun SettingsScreen(
     val isFa = currentLanguage == AppLanguage.PERSIAN
     val scrollState = rememberScrollState()
 
+    var isEnabled by remember(downloadSettings) { mutableStateOf(downloadSettings.isEnabled) }
     var address by remember(downloadSettings) { mutableStateOf(downloadSettings.address) }
     var port by remember(downloadSettings) { mutableStateOf(downloadSettings.port.toString()) }
     var sni by remember(downloadSettings) { mutableStateOf(downloadSettings.tlsSettings.serverName) }
@@ -225,6 +228,37 @@ fun SettingsScreen(
 
         GlassCard(modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.padding(16.dp)) {
+                // Feature Toggle (Enabled / Disabled)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = if (isFa) "فعال‌سازی مسیر اختصاصی دانلود" else "Enable Asymmetric Download",
+                            color = TunnixStyle.glass.textPrimary,
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                        Text(
+                            text = if (isFa) "فقط روی کانفیگ‌های با پورت $port اعمال می‌شود" else "Applied only to configs on port $port",
+                            color = TunnixStyle.glass.textSecondary,
+                            fontSize = 12.sp
+                        )
+                    }
+                    Switch(
+                        checked = isEnabled,
+                        onCheckedChange = { isEnabled = it },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = EmeraldGreen,
+                            checkedTrackColor = EmeraldGreen.copy(alpha = 0.5f)
+                        )
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
                 SettingInputField(label = "Download Address", value = address, onValueChange = { address = it })
                 SettingInputField(label = "Download Port", value = port, onValueChange = { port = it })
                 SettingInputField(label = "Download SNI", value = sni, onValueChange = { sni = it })
@@ -245,6 +279,7 @@ fun SettingsScreen(
                     OutlinedButton(
                         onClick = {
                             val def = DownloadSettingsConfig.DEFAULT
+                            isEnabled = def.isEnabled
                             address = def.address
                             port = def.port.toString()
                             sni = def.tlsSettings.serverName
@@ -265,6 +300,7 @@ fun SettingsScreen(
                     OutlinedButton(
                         onClick = {
                             val updatedConfig = DownloadSettingsConfig(
+                                isEnabled = isEnabled,
                                 address = address.trim(),
                                 port = port.toIntOrNull() ?: 2053,
                                 network = "xhttp",

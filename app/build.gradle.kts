@@ -21,37 +21,41 @@ android {
         }
 
         ndk {
-            abiFilters.addAll(listOf("arm64-v8a", "armeabi-v7a", "x86_64"))
+            abiFilters.addAll(listOf("arm64-v8a", "armeabi-v7a"))
+        }
+    }
+
+    splits {
+        abi {
+            isEnable = true
+            reset()
+            include("arm64-v8a", "armeabi-v7a")
+            isUniversalApk = true
         }
     }
 
     signingConfigs {
         create("release") {
             val keystoreFile = project.rootProject.file("release.keystore")
-            if (keystoreFile.exists()) {
-                storeFile = keystoreFile
-                storePassword = System.getenv("KEYSTORE_PASSWORD") ?: "tunnix2026pass"
-                keyAlias = System.getenv("KEY_ALIAS") ?: "tunnixkey"
-                keyPassword = System.getenv("KEY_PASSWORD") ?: "tunnix2026pass"
-                enableV1Signing = true
-                enableV2Signing = true
-                enableV3Signing = true
-            }
+            storeFile = keystoreFile
+            storePassword = System.getenv("KEYSTORE_PASSWORD") ?: "tunnix2026pass"
+            keyAlias = System.getenv("KEY_ALIAS") ?: "tunnixkey"
+            keyPassword = System.getenv("KEY_PASSWORD") ?: "tunnix2026pass"
+            enableV1Signing = true
+            enableV2Signing = true
+            enableV3Signing = true
         }
     }
 
     buildTypes {
         release {
             isMinifyEnabled = true
-            isShrinkResources = true
+            isShrinkResources = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            val releaseConfig = signingConfigs.findByName("release")
-            if (releaseConfig?.storeFile?.exists() == true) {
-                signingConfig = releaseConfig
-            }
+            signingConfig = signingConfigs.getByName("release")
         }
         debug {
             applicationIdSuffix = ".debug"
@@ -73,6 +77,9 @@ android {
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
+        }
+        jniLibs {
+            useLegacyPackaging = true
         }
     }
 }

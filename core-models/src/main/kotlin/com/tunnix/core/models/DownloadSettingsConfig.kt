@@ -14,6 +14,7 @@ data class DownloadXhttpSettings(
 ) : Serializable
 
 data class DownloadSettingsConfig(
+    val isEnabled: Boolean = true,
     val address: String = "ipapp.genus.ir",
     val port: Int = 2053,
     val network: String = "xhttp",

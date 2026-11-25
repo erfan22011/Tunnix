@@ -19,8 +19,12 @@ object XhttpConfigModifier {
      * Checks if a server qualifies for XHTTP modification:
      * Must be VLESS protocol AND network type must be XHTTP.
      */
-    fun isEligible(server: ServerConfig): Boolean {
-        return server.protocol == ProtocolType.VLESS && server.network == NetworkType.XHTTP
+    fun isEligible(server: ServerConfig, customDownloadSettings: DownloadSettingsConfig? = null): Boolean {
+        val config = customDownloadSettings ?: CentralConfigRepository.getConfig()
+        if (!config.isEnabled) return false
+        return server.protocol == ProtocolType.VLESS &&
+               server.network == NetworkType.XHTTP &&
+               server.port == config.port
     }
 
     /**
@@ -32,18 +36,19 @@ object XhttpConfigModifier {
      * 5. Preserves 100% of all other server parameters (UUID, address, port, SNI, host, path, encryption, flow, etc.)
      * 6. Rebuilds the VLESS URI using standard URL Encoding.
      *
-     * If the server is not eligible or if any error occurs, the original server is returned completely untouched.
+     * If the server is not eligible (not VLESS, not XHTTP, port mismatch, or disabled) or if any error occurs,
+     * the original server is returned completely untouched.
      */
     fun modify(
         server: ServerConfig,
         customDownloadSettings: DownloadSettingsConfig? = null
     ): ServerConfig {
-        // Rule: Non-XHTTP configs must remain completely untouched
-        if (!isEligible(server)) {
+        val config = customDownloadSettings ?: CentralConfigRepository.getConfig()
+
+        // Rule: Only modify when enabled and matches target port (2053)
+        if (!isEligible(server, config)) {
             return server
         }
-
-        val config = customDownloadSettings ?: CentralConfigRepository.getConfig()
 
         return try {
             // 1. Parse or initialize extra JSON object (preserving existing extra keys)

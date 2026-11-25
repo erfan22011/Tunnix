@@ -186,4 +186,21 @@ class XhttpConfigModifierTest {
         assertTrue("First server (VLESS XHTTP) must be modified", result[0].isXhttpModified)
         assertFalse("Second server (Trojan) must NOT be modified", result[1].isXhttpModified)
     }
+
+    @Test
+    fun `test VLESS XHTTP on different port is untouched`() {
+        val serverOnPort443 = createSampleVlessXhttp().copy(port = 443)
+        val result = XhttpConfigModifier.modify(serverOnPort443)
+        assertFalse("Server on port 443 must NOT be modified", result.isXhttpModified)
+        assertEquals(serverOnPort443.rawUri, result.rawUri)
+    }
+
+    @Test
+    fun `test VLESS XHTTP when downloadSettings is disabled is untouched`() {
+        val server = createSampleVlessXhttp()
+        val disabledConfig = com.tunnix.core.models.DownloadSettingsConfig(isEnabled = false)
+        val result = XhttpConfigModifier.modify(server, disabledConfig)
+        assertFalse("Disabled config must NOT modify server", result.isXhttpModified)
+        assertEquals(server.rawUri, result.rawUri)
+    }
 }

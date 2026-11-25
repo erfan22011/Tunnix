@@ -25,25 +25,13 @@ jobs:
           distribution: 'temurin'
           cache: gradle
 
-      - name: Prepare Release Keystore
-        id: setup_keystore
+      - name: Verify Permanent Release Keystore
         run: |
-          if [ -n "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" ]; then
-            echo "Decoding Keystore from GitHub Secrets..."
-            echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > release.keystore
-            echo "KEYSTORE_EXISTS=true" >> $GITHUB_ENV
+          if [ -f release.keystore ]; then
+            echo "Permanent release.keystore found in repository."
           else
-            echo "Generating clean RSA-4096 Release Keystore to prevent Google Play Protect warnings..."
-            keytool -genkeypair -v \
-              -keystore release.keystore \
-              -alias "${{ secrets.ANDROID_KEY_ALIAS || 'tunnixkey' }}" \
-              -keyalg RSA \
-              -keysize 4096 \
-              -validity 10000 \
-              -storepass "${{ secrets.ANDROID_KEYSTORE_PASSWORD || 'tunnix2026pass' }}" \
-              -keypass "${{ secrets.ANDROID_KEY_PASSWORD || 'tunnix2026pass' }}" \
-              -dname "CN=Tunnix Security, OU=Tunnix Core, O=Tunnix Net, L=Stockholm, ST=Stockholm, C=SE"
-            echo "KEYSTORE_EXISTS=true" >> $GITHUB_ENV
+            echo "ERROR: release.keystore not found!"
+            exit 1
           fi
 
       - name: Make Gradle Wrapper Executable
@@ -57,39 +45,50 @@ jobs:
             curl -L -o libv2ray/libv2ray.aar https://github.com/2dust/AndroidLibXrayLite/releases/download/v26.11.9/libv2ray.aar
           fi
 
-      - name: Build Release APK
+      - name: Build Release APKs with ABI Splits
         env:
-          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD || 'tunnix2026pass' }}
-          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS || 'tunnixkey' }}
-          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD || 'tunnix2026pass' }}
+          KEYSTORE_PASSWORD: "tunnix2026pass"
+          KEY_ALIAS: "tunnixkey"
+          KEY_PASSWORD: "tunnix2026pass"
         run: ./gradlew assembleRelease --stacktrace
 
-      - name: Sign APK with apksigner (v1, v2, v3 schemes)
+      - name: Organize, Sign & Verify Release APKs
         run: |
-          APK_PATH=$(find app/build/outputs/apk/release -name "*.apk" | head -n 1)
-          if [ -f "$APK_PATH" ]; then
-            echo "Signing APK with full v1/v2/v3 signature schemes: $APK_PATH"
-            $ANDROID_HOME/build-tools/34.0.0/apksigner sign \
-              --ks release.keystore \
-              --ks-pass pass:"${{ secrets.ANDROID_KEYSTORE_PASSWORD || 'tunnix2026pass' }}" \
-              --ks-key-alias "${{ secrets.ANDROID_KEY_ALIAS || 'tunnixkey' }}" \
-              --key-pass pass:"${{ secrets.ANDROID_KEY_PASSWORD || 'tunnix2026pass' }}" \
-              --v1-signing-enabled true \
-              --v2-signing-enabled true \
-              --v3-signing-enabled true \
-              "$APK_PATH"
-            
-            echo "Verifying signature schemes..."
-            $ANDROID_HOME/build-tools/34.0.0/apksigner verify --verbose "$APK_PATH"
-            cp "$APK_PATH" Tunnix-${{ github.ref_name }}.apk
-          fi
+          mkdir -p release-artifacts
+          for apk in app/build/outputs/apk/release/*.apk; do
+            if [ -f "$apk" ]; then
+              echo "Signing APK with apksigner (v1, v2, v3): $apk"
+              $ANDROID_HOME/build-tools/34.0.0/apksigner sign \
+                --ks release.keystore \
+                --ks-pass pass:"tunnix2026pass" \
+                --ks-key-alias "tunnixkey" \
+                --key-pass pass:"tunnix2026pass" \
+                --v1-signing-enabled true \
+                --v2-signing-enabled true \
+                --v3-signing-enabled true \
+                "$apk"
+
+              echo "Verifying signature and alignment for: $apk"
+              $ANDROID_HOME/build-tools/34.0.0/apksigner verify --verbose "$apk"
+              
+              filename=$(basename "$apk")
+              echo "Processing $filename..."
+              if [[ "$filename" == *"arm64-v8a"* ]]; then
+                cp "$apk" "release-artifacts/Tunnix-${{ github.ref_name }}-arm64-v8a.apk"
+              elif [[ "$filename" == *"armeabi-v7a"* ]]; then
+                cp "$apk" "release-artifacts/Tunnix-${{ github.ref_name }}-armeabi-v7a.apk"
+              elif [[ "$filename" == *"universal"* ]]; then
+                cp "$apk" "release-artifacts/Tunnix-${{ github.ref_name }}-universal.apk"
+              fi
+            fi
+          done
+          echo "Generated Release Artifacts:"
+          ls -lh release-artifacts/
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: |
-            Tunnix-*.apk
-            app/build/outputs/apk/release/*.apk
+          files: release-artifacts/*.apk
           draft: false
           prerelease: false
           generate_release_notes: true
@@ -97,8 +96,14 @@ jobs:
           body: |
             ## Tunnix - Freedom, One Tap Away
             Official Release **${{ github.ref_name }}**
-            
-            - Built with Xray-core with full VLESS XHTTP Asymmetric Routing support.
-            - Dual Theme: Liquid Glass Dark & Light.
-            - Bilingual: Persian (فارسی) & English.
-            - Signed with full v1/v2/v3 signatures for seamless installation without Google Play Protect warnings.
+
+            ### 📦 بسته های دانلودی تفکیک‌شده (Download Packages):
+            * **Tunnix-${{ github.ref_name }}-arm64-v8a.apk**: برای تمامی گوشی‌های مدرن اندروید ۶۴ بیتی (بهینه‌ترین و سبک‌ترین نسخه - توصیه شده)
+            * **Tunnix-${{ github.ref_name }}-armeabi-v7a.apk**: برای گوشی‌های قدیمی‌تر اندروید (۳۲ بیتی)
+            * **Tunnix-${{ github.ref_name }}-universal.apk**: نسخه کامل یونیورسال سازگار با تمامی پردازنده‌ها
+
+            ### ✨ تغییرات این نسخه:
+            1. **رفع خطای نصب و ناسازگاری پکیج (App not installed as package appears to be invalid)**: ثبت کلید امضای دائمی و ثابت RSA-4096 در پروژه جهت امکان آپدیت پیوسته و بدون تداخل روی نسخه‌های قبلی.
+            2. **تفکیک معماری‌ها و بهینه‌سازی حجم برنامه**: کاهش چشمگیر حجم برنامه از ۱۰۶ مگابایت به نسخه‌های سبک مجزا برای هر نوع پردازنده.
+            3. **کلید خاموش/روشن مسیر اختصاصی دانلود در تنظیمات**: امکان فعال یا غیرفعال‌سازی تنظیمات `downloadSettings` (به صورت پیش‌فرض فعال).
+            4. **اعمال هوشمند و انحصاری بر روی پورت مشخص‌شده**: مقادیر نامتقارن `downloadSettings` صرفاً بر روی سرورهای با پورت هدف (2053) اعمال شده و سایر کانفیگ‌ها دست‌نخورده باقی می‌مانند.

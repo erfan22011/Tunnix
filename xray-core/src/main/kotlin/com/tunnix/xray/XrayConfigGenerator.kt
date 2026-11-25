@@ -237,46 +237,57 @@ object XrayConfigGenerator {
             streamSettings.add("tlsSettings", tlsObj)
         }
 
-        // XHTTP Transport Settings (with mode: stream-up, extra, and downloadSettings)
+        // XHTTP Transport Settings
         if (server.network == NetworkType.XHTTP) {
             val dlConfig = customDownloadSettings ?: server.downloadSettings ?: DownloadSettingsConfig.DEFAULT
+            val shouldApplyAsymmetric = dlConfig.isEnabled && (server.port == dlConfig.port)
 
-            val xhttpObj = JsonObject().apply {
-                addProperty("host", server.host.ifBlank { server.sni })
-                addProperty("path", server.path.ifBlank { "/xhttp" })
-                addProperty("mode", dlConfig.mode.ifBlank { "stream-up" })
+            if (shouldApplyAsymmetric) {
+                val xhttpObj = JsonObject().apply {
+                    addProperty("host", server.host.ifBlank { server.sni })
+                    addProperty("path", server.path.ifBlank { "/xhttp" })
+                    addProperty("mode", dlConfig.mode.ifBlank { "stream-up" })
 
-                // Injected xPaddingBytes inside extra
-                val extraObj = JsonObject().apply {
-                    addProperty("xPaddingBytes", dlConfig.xPaddingBytes.ifBlank { "100-1000" })
+                    // Injected xPaddingBytes inside extra
+                    val extraObj = JsonObject().apply {
+                        addProperty("xPaddingBytes", dlConfig.xPaddingBytes.ifBlank { "100-1000" })
+                    }
+                    add("extra", extraObj)
                 }
-                add("extra", extraObj)
+                streamSettings.add("xhttpSettings", xhttpObj)
+
+                // Asymmetric downloadSettings block
+                val dlSettingsObj = JsonObject().apply {
+                    addProperty("address", dlConfig.address)
+                    addProperty("port", dlConfig.port)
+                    addProperty("network", dlConfig.network)
+                    addProperty("security", dlConfig.security)
+
+                    val dlTls = JsonObject().apply {
+                        addProperty("serverName", dlConfig.tlsSettings.serverName)
+                        val alpnArray = JsonArray()
+                        dlConfig.tlsSettings.alpn.forEach { alpnArray.add(it) }
+                        add("alpn", alpnArray)
+                        addProperty("fingerprint", dlConfig.tlsSettings.fingerprint)
+                    }
+                    add("tlsSettings", dlTls)
+
+                    val dlXhttp = JsonObject().apply {
+                        addProperty("host", dlConfig.xhttpSettings.host)
+                        addProperty("path", dlConfig.xhttpSettings.path)
+                    }
+                    add("xhttpSettings", dlXhttp)
+                }
+                streamSettings.add("downloadSettings", dlSettingsObj)
+            } else {
+                // Standard symmetric XHTTP settings (when port differs or feature disabled)
+                val xhttpObj = JsonObject().apply {
+                    addProperty("host", server.host.ifBlank { server.sni })
+                    addProperty("path", server.path.ifBlank { "/xhttp" })
+                    addProperty("mode", "auto")
+                }
+                streamSettings.add("xhttpSettings", xhttpObj)
             }
-            streamSettings.add("xhttpSettings", xhttpObj)
-
-            // Asymmetric downloadSettings block
-            val dlSettingsObj = JsonObject().apply {
-                addProperty("address", dlConfig.address)
-                addProperty("port", dlConfig.port)
-                addProperty("network", dlConfig.network)
-                addProperty("security", dlConfig.security)
-
-                val dlTls = JsonObject().apply {
-                    addProperty("serverName", dlConfig.tlsSettings.serverName)
-                    val alpnArray = JsonArray()
-                    dlConfig.tlsSettings.alpn.forEach { alpnArray.add(it) }
-                    add("alpn", alpnArray)
-                    addProperty("fingerprint", dlConfig.tlsSettings.fingerprint)
-                }
-                add("tlsSettings", dlTls)
-
-                val dlXhttp = JsonObject().apply {
-                    addProperty("host", dlConfig.xhttpSettings.host)
-                    addProperty("path", dlConfig.xhttpSettings.path)
-                }
-                add("xhttpSettings", dlXhttp)
-            }
-            streamSettings.add("downloadSettings", dlSettingsObj)
         } else if (server.network == NetworkType.WS) {
             val wsObj = JsonObject().apply {
                 addProperty("path", server.path.ifBlank { "/" })

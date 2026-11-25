@@ -17,6 +17,7 @@ gen/
 out/
 release/
 *.keystore
+!release.keystore
 !debug.keystore
 tools/
 *.pyc
