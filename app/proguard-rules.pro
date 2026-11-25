@@ -1,7 +1,7 @@
 # Tunnix Proguard Rules
 
--keep class com.tunnix.core.models.** { *; }
--keep class com.tunnix.xray.** { *; }
+-keep class com.tunnix.** { *; }
+-keep interface com.tunnix.** { *; }
 -keep class libxray.** { *; }
 -keep class libv2ray.** { *; }
 -keep class go.** { *; }

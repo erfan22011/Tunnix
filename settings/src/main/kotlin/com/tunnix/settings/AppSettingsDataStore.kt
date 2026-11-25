@@ -44,7 +44,13 @@ class AppSettingsDataStore(private val context: Context) {
 
         val dlConfig = if (!dlJson.isNullOrBlank()) {
             try {
-                gson.fromJson(dlJson, DownloadSettingsConfig::class.java) ?: DownloadSettingsConfig.DEFAULT
+                val parsed = gson.fromJson(dlJson, DownloadSettingsConfig::class.java)
+                if (parsed != null) {
+                    val validTargetPort = parsed.effectiveTargetPort
+                    parsed.copy(targetPort = validTargetPort)
+                } else {
+                    DownloadSettingsConfig.DEFAULT
+                }
             } catch (_: Exception) {
                 DownloadSettingsConfig.DEFAULT
             }

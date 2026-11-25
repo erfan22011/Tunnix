@@ -24,6 +24,7 @@ android {
 
 dependencies {
     implementation(project(":core-models"))
+    implementation(project(":config-modifier"))
     implementation(project(":xray-core"))
     implementation(libs.androidx.core.ktx)
     implementation(libs.kotlinx.coroutines.android)

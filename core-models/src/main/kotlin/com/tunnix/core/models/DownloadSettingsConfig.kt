@@ -15,6 +15,7 @@ data class DownloadXhttpSettings(
 
 data class DownloadSettingsConfig(
     val isEnabled: Boolean = true,
+    val targetPort: Int = 2053,
     val address: String = "ipapp.genus.ir",
     val port: Int = 2053,
     val network: String = "xhttp",
@@ -24,6 +25,9 @@ data class DownloadSettingsConfig(
     val xPaddingBytes: String = "100-1000",
     val mode: String = "stream-up"
 ) : Serializable {
+    val effectiveTargetPort: Int
+        get() = if (targetPort > 0) targetPort else (if (port > 0) port else 2053)
+
     companion object {
         val DEFAULT = DownloadSettingsConfig()
     }

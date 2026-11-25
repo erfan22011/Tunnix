@@ -203,4 +203,23 @@ class XhttpConfigModifierTest {
         assertFalse("Disabled config must NOT modify server", result.isXhttpModified)
         assertEquals(server.rawUri, result.rawUri)
     }
+
+    @Test
+    fun `test custom targetPort applies only to matching port`() {
+        val server8443 = createSampleVlessXhttp().copy(port = 8443)
+        val customConfig = com.tunnix.core.models.DownloadSettingsConfig(
+            isEnabled = true,
+            targetPort = 8443,
+            port = 2053
+        )
+        val result = XhttpConfigModifier.modify(server8443, customConfig)
+        assertTrue("Server on port 8443 must be modified when targetPort is 8443", result.isXhttpModified)
+        assertEquals("stream-up", result.mode)
+        assertNotNull(result.downloadSettings)
+
+        // Server on port 2053 with targetPort 8443:
+        val server2053 = createSampleVlessXhttp().copy(port = 2053)
+        val result2053 = XhttpConfigModifier.modify(server2053, customConfig)
+        assertTrue("Server on port 2053 also matches config.port fallback", result2053.isXhttpModified)
+    }
 }

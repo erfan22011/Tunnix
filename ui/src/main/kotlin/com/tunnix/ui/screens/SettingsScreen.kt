@@ -61,6 +61,7 @@ fun SettingsScreen(
     val scrollState = rememberScrollState()
 
     var isEnabled by remember(downloadSettings) { mutableStateOf(downloadSettings.isEnabled) }
+    var targetPort by remember(downloadSettings) { mutableStateOf(downloadSettings.effectiveTargetPort.toString()) }
     var address by remember(downloadSettings) { mutableStateOf(downloadSettings.address) }
     var port by remember(downloadSettings) { mutableStateOf(downloadSettings.port.toString()) }
     var sni by remember(downloadSettings) { mutableStateOf(downloadSettings.tlsSettings.serverName) }
@@ -242,7 +243,7 @@ fun SettingsScreen(
                             fontWeight = FontWeight.Medium
                         )
                         Text(
-                            text = if (isFa) "فقط روی کانفیگ‌های با پورت $port اعمال می‌شود" else "Applied only to configs on port $port",
+                            text = if (isFa) "فقط روی کانفیگ‌های با پورت $targetPort اعمال می‌شود" else "Applied only to configs on port $targetPort",
                             color = TunnixStyle.glass.textSecondary,
                             fontSize = 12.sp
                         )
@@ -259,15 +260,56 @@ fun SettingsScreen(
 
                 Spacer(modifier = Modifier.height(14.dp))
 
-                SettingInputField(label = "Download Address", value = address, onValueChange = { address = it })
-                SettingInputField(label = "Download Port", value = port, onValueChange = { port = it })
-                SettingInputField(label = "Download SNI", value = sni, onValueChange = { sni = it })
-                SettingInputField(label = "Download Host", value = host, onValueChange = { host = it })
-                SettingInputField(label = "Download Path", value = path, onValueChange = { path = it })
-                SettingInputField(label = "ALPN", value = alpn, onValueChange = { alpn = it })
-                SettingInputField(label = "Fingerprint", value = fingerprint, onValueChange = { fingerprint = it })
-                SettingInputField(label = "xPaddingBytes", value = xPaddingBytes, onValueChange = { xPaddingBytes = it })
-                SettingInputField(label = "XHTTP Mode", value = mode, onValueChange = { mode = it })
+                SettingInputField(
+                    label = if (isFa) "پورت سرور هدف برای اعمال تنظیمات" else "Target Server Port",
+                    value = targetPort,
+                    onValueChange = { targetPort = it }
+                )
+                SettingInputField(
+                    label = if (isFa) "آدرس دانلود (Download Address)" else "Download Address",
+                    value = address,
+                    onValueChange = { address = it }
+                )
+                SettingInputField(
+                    label = if (isFa) "پورت دانلود (Download Port)" else "Download Port",
+                    value = port,
+                    onValueChange = { port = it }
+                )
+                SettingInputField(
+                    label = if (isFa) "SNI دانلود (Download SNI)" else "Download SNI",
+                    value = sni,
+                    onValueChange = { sni = it }
+                )
+                SettingInputField(
+                    label = if (isFa) "Host دانلود (Download Host)" else "Download Host",
+                    value = host,
+                    onValueChange = { host = it }
+                )
+                SettingInputField(
+                    label = if (isFa) "مسیر دانلود (Download Path)" else "Download Path",
+                    value = path,
+                    onValueChange = { path = it }
+                )
+                SettingInputField(
+                    label = if (isFa) "پروتکل‌های ALPN" else "ALPN",
+                    value = alpn,
+                    onValueChange = { alpn = it }
+                )
+                SettingInputField(
+                    label = if (isFa) "اثرانگشت TLS (Fingerprint)" else "Fingerprint",
+                    value = fingerprint,
+                    onValueChange = { fingerprint = it }
+                )
+                SettingInputField(
+                    label = if (isFa) "پدینگ داده‌ها (xPaddingBytes)" else "xPaddingBytes",
+                    value = xPaddingBytes,
+                    onValueChange = { xPaddingBytes = it }
+                )
+                SettingInputField(
+                    label = if (isFa) "حالت انتقال XHTTP (Mode)" else "XHTTP Mode",
+                    value = mode,
+                    onValueChange = { mode = it }
+                )
 
                 Spacer(modifier = Modifier.height(14.dp))
 
@@ -280,6 +322,7 @@ fun SettingsScreen(
                         onClick = {
                             val def = DownloadSettingsConfig.DEFAULT
                             isEnabled = def.isEnabled
+                            targetPort = def.effectiveTargetPort.toString()
                             address = def.address
                             port = def.port.toString()
                             sni = def.tlsSettings.serverName
@@ -299,10 +342,13 @@ fun SettingsScreen(
                     // Save Button
                     OutlinedButton(
                         onClick = {
+                            val parsedTargetPort = targetPort.toIntOrNull() ?: 2053
+                            val parsedPort = port.toIntOrNull() ?: 2053
                             val updatedConfig = DownloadSettingsConfig(
                                 isEnabled = isEnabled,
+                                targetPort = parsedTargetPort,
                                 address = address.trim(),
-                                port = port.toIntOrNull() ?: 2053,
+                                port = parsedPort,
                                 network = "xhttp",
                                 security = "tls",
                                 tlsSettings = DownloadTlsSettings(

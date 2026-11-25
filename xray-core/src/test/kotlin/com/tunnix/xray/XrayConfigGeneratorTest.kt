@@ -80,6 +80,11 @@ class XrayConfigGeneratorTest {
         assertEquals("stream-up", xhttpSettings.get("mode").asString)
         assertEquals("100-1000", xhttpSettings.getAsJsonObject("extra").get("xPaddingBytes").asString)
 
+        val extraDl = xhttpSettings.getAsJsonObject("extra").getAsJsonObject("downloadSettings")
+        assertNotNull("downloadSettings must be inside extra for Xray-core", extraDl)
+        assertEquals("ipapp.genus.ir", extraDl.get("address").asString)
+        assertEquals(2053, extraDl.get("port").asInt)
+
         // Asymmetric DownloadSettings
         val dlSettings = streamSettings.getAsJsonObject("downloadSettings")
         assertNotNull("downloadSettings must be present in streamSettings", dlSettings)

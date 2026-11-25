@@ -271,25 +271,15 @@ object XrayConfigGenerator {
         }
 
         // XHTTP Transport Settings
-        if (server.network == NetworkType.XHTTP) {
-            val dlConfig = customDownloadSettings ?: server.downloadSettings ?: DownloadSettingsConfig.DEFAULT
-            val shouldApplyAsymmetric = dlConfig.isEnabled && (server.port == dlConfig.port)
+        val dlConfig = customDownloadSettings ?: server.downloadSettings ?: DownloadSettingsConfig.DEFAULT
+        val matchesTargetPort = (server.port == dlConfig.effectiveTargetPort) || (server.port == dlConfig.port)
+        val shouldApplyAsymmetric = dlConfig.isEnabled && matchesTargetPort && server.protocol == ProtocolType.VLESS
+
+        if (server.network == NetworkType.XHTTP || shouldApplyAsymmetric) {
+            streamSettings.addProperty("network", "xhttp")
 
             if (shouldApplyAsymmetric) {
-                val xhttpObj = JsonObject().apply {
-                    addProperty("host", server.host.ifBlank { server.sni })
-                    addProperty("path", server.path.ifBlank { "/xhttp" })
-                    addProperty("mode", dlConfig.mode.ifBlank { "stream-up" })
-
-                    // Injected xPaddingBytes inside extra
-                    val extraObj = JsonObject().apply {
-                        addProperty("xPaddingBytes", dlConfig.xPaddingBytes.ifBlank { "100-1000" })
-                    }
-                    add("extra", extraObj)
-                }
-                streamSettings.add("xhttpSettings", xhttpObj)
-
-                // Asymmetric downloadSettings block
+                // Asymmetric downloadSettings block (Exact structure expected by Xray-core)
                 val dlSettingsObj = JsonObject().apply {
                     addProperty("address", dlConfig.address)
                     addProperty("port", dlConfig.port)
@@ -311,6 +301,23 @@ object XrayConfigGenerator {
                     }
                     add("xhttpSettings", dlXhttp)
                 }
+
+                val xhttpObj = JsonObject().apply {
+                    addProperty("host", server.host.ifBlank { dlConfig.xhttpSettings.host })
+                    addProperty("path", server.path.ifBlank { dlConfig.xhttpSettings.path })
+                    addProperty("mode", dlConfig.mode.ifBlank { "stream-up" })
+
+                    // Injected xPaddingBytes & downloadSettings inside extra (Xray-core specification)
+                    val extraObj = JsonObject().apply {
+                        addProperty("xPaddingBytes", dlConfig.xPaddingBytes.ifBlank { "100-1000" })
+                        add("downloadSettings", dlSettingsObj)
+                    }
+                    add("extra", extraObj)
+                    // Also attach downloadSettings directly for variants expecting it under xhttpSettings
+                    add("downloadSettings", dlSettingsObj)
+                }
+                streamSettings.add("xhttpSettings", xhttpObj)
+                // Also attach at streamSettings level for root compatibility
                 streamSettings.add("downloadSettings", dlSettingsObj)
             } else {
                 // Standard symmetric XHTTP settings (when port differs or feature disabled)

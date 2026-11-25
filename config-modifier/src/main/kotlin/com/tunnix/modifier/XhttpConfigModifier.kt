@@ -22,9 +22,8 @@ object XhttpConfigModifier {
     fun isEligible(server: ServerConfig, customDownloadSettings: DownloadSettingsConfig? = null): Boolean {
         val config = customDownloadSettings ?: CentralConfigRepository.getConfig()
         if (!config.isEnabled) return false
-        return server.protocol == ProtocolType.VLESS &&
-               server.network == NetworkType.XHTTP &&
-               server.port == config.port
+        val matchesPort = (server.port == config.effectiveTargetPort) || (server.port == config.port)
+        return server.protocol == ProtocolType.VLESS && matchesPort
     }
 
     /**
@@ -120,6 +119,7 @@ object XhttpConfigModifier {
             val modifiedUri = "vless://${server.uuid}@${server.address}:${server.port}?$queryString#$encodedRemark"
 
             server.copy(
+                network = NetworkType.XHTTP,
                 mode = config.mode,
                 xPaddingBytes = config.xPaddingBytes,
                 downloadSettings = config,
@@ -143,8 +143,15 @@ object XhttpConfigModifier {
     ): List<ServerConfig> {
         val config = customDownloadSettings ?: CentralConfigRepository.getConfig()
         return servers.map { server ->
-            if (isEligible(server)) {
+            if (isEligible(server, config)) {
                 modify(server, config)
+            } else if (server.isXhttpModified && !isEligible(server, config)) {
+                // If it was previously modified, clear asymmetric downloadSettings & mark isXhttpModified = false
+                server.copy(
+                    isXhttpModified = false,
+                    downloadSettings = null,
+                    mode = "auto"
+                )
             } else {
                 server // Untouched
             }

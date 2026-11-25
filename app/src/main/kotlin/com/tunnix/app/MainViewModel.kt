@@ -40,6 +40,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private val dataStore = AppSettingsDataStore(application)
     private val fetcher = SubscriptionFetcher()
+    private var rawServers: List<ServerConfig> = emptyList()
 
     private val _uiState = MutableStateFlow(UiState())
     val uiState: StateFlow<UiState> = _uiState.asStateFlow()
@@ -53,13 +54,27 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private fun observeDataStore() {
         viewModelScope.launch {
             dataStore.preferencesFlow.collect { prefs ->
+                CentralConfigRepository.updateConfig(prefs.downloadSettings)
+
+                val baseList = if (rawServers.isNotEmpty()) rawServers else _uiState.value.servers
+                val updatedServers = if (baseList.isNotEmpty()) {
+                    XhttpConfigModifier.modifyAll(baseList, prefs.downloadSettings)
+                } else {
+                    _uiState.value.servers
+                }
+
+                val currentSelectedId = _uiState.value.selectedServer?.id ?: prefs.selectedServerId
+                val updatedSelected = updatedServers.firstOrNull { it.id == currentSelectedId }
+                    ?: updatedServers.firstOrNull()
+
                 _uiState.value = _uiState.value.copy(
                     language = prefs.language,
                     themeMode = prefs.themeMode,
                     downloadSettings = prefs.downloadSettings,
+                    servers = updatedServers,
+                    selectedServer = updatedSelected,
                     hasSubscription = prefs.subscriptionUrl.isNotBlank()
                 )
-                CentralConfigRepository.updateConfig(prefs.downloadSettings)
 
                 // If subscription URL exists and servers empty, fetch them
                 if (prefs.subscriptionUrl.isNotBlank() && _uiState.value.servers.isEmpty()) {
@@ -99,9 +114,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
             val result = fetcher.fetch(urlOrToken)
             if (result.isSuccess) {
-                val rawServers = result.getOrThrow()
+                val fetchedServers = result.getOrThrow()
+                rawServers = fetchedServers
                 // Apply intelligent XHTTP modification with current downloadSettings
-                val modifiedServers = XhttpConfigModifier.modifyAll(rawServers, _uiState.value.downloadSettings)
+                val currentConfig = _uiState.value.downloadSettings
+                val modifiedServers = XhttpConfigModifier.modifyAll(fetchedServers, currentConfig)
 
                 val selected = if (!preferredServerId.isNullOrBlank()) {
                     modifiedServers.firstOrNull { it.id == preferredServerId } ?: modifiedServers.firstOrNull()
@@ -148,7 +165,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         when (currentState) {
             is VpnState.Disconnected, is VpnState.Error -> {
                 if (server != null) {
-                    VpnTunnelManager.startVpn(context, server)
+                    val currentConfig = _uiState.value.downloadSettings
+                    CentralConfigRepository.updateConfig(currentConfig)
+                    val preparedServer = if (XhttpConfigModifier.isEligible(server, currentConfig)) {
+                        XhttpConfigModifier.modify(server, currentConfig)
+                    } else {
+                        server
+                    }
+                    VpnTunnelManager.startVpn(context, preparedServer)
                 } else {
                     _uiState.value = _uiState.value.copy(errorMessage = "هیچ سروری انتخاب نشده است")
                 }
@@ -175,8 +199,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             dataStore.saveDownloadSettings(config)
             CentralConfigRepository.updateConfig(config)
-            // Re-apply modification to servers list
-            val updatedServers = XhttpConfigModifier.modifyAll(_uiState.value.servers, config)
+            // Re-apply modification to servers list starting from raw servers if available
+            val baseServers = if (rawServers.isNotEmpty()) rawServers else _uiState.value.servers
+            val updatedServers = XhttpConfigModifier.modifyAll(baseServers, config)
             val updatedSelected = updatedServers.firstOrNull { it.id == _uiState.value.selectedServer?.id }
                 ?: updatedServers.firstOrNull()
 

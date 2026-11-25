@@ -12,6 +12,7 @@ import android.os.Build
 import android.os.ParcelFileDescriptor
 import com.tunnix.core.models.ServerConfig
 import com.tunnix.core.models.VpnState
+import com.tunnix.modifier.CentralConfigRepository
 import com.tunnix.xray.XrayConfigGenerator
 import com.tunnix.xray.XrayCoreController
 import kotlinx.coroutines.CoroutineScope
@@ -90,7 +91,8 @@ class TunnixVpnService : VpnService() {
                 // 3. Initialize Xray environment, assets & generate JSON config
                 copyAssetsIfNeeded()
                 XrayCoreController.initEnvironment(filesDir)
-                val configJson = XrayConfigGenerator.generate(server)
+                val dlConfig = CentralConfigRepository.getConfig()
+                val configJson = XrayConfigGenerator.generate(server, customDownloadSettings = dlConfig)
 
                 // 4. Start native Xray-core loop bound directly to TUN fd
                 val startResult = XrayCoreController.start(configJson, tunFd)
