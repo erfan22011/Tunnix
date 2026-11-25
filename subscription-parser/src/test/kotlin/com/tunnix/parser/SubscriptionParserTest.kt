@@ -1,0 +1,47 @@
+package com.tunnix.parser
+
+import com.tunnix.core.models.ProtocolType
+import org.junit.Assert.*
+import org.junit.Test
+import java.nio.charset.StandardCharsets
+import java.util.Base64
+
+class SubscriptionParserTest {
+
+    @Test
+    fun `test parsing multiline plaintext subscription`() {
+        val raw = """
+            vless://uuid-1@ovv.genus.ir:2053?type=xhttp#Server-1
+            trojan://pass-2@ovv.pelqexa.ir:443?type=tcp#Server-2
+            # Comment line
+            invalid://protocol@test.com
+        """.trimIndent()
+
+        val servers = SubscriptionParser.parse(raw)
+        assertEquals(2, servers.size)
+        assertEquals("Server-1", servers[0].name)
+        assertEquals(ProtocolType.VLESS, servers[0].protocol)
+        assertEquals("Server-2", servers[1].name)
+        assertEquals(ProtocolType.TROJAN, servers[1].protocol)
+    }
+
+    @Test
+    fun `test parsing base64 encoded subscription`() {
+        val raw = """
+            vless://uuid-1@ovv.genus.ir:2053?type=xhttp#Server-1
+            vless://uuid-2@ovv.pelqexa.ir:2053?type=xhttp#Server-2
+        """.trimIndent()
+
+        val encoded = Base64.getEncoder().encodeToString(raw.toByteArray(StandardCharsets.UTF_8))
+        val servers = SubscriptionParser.parse(encoded)
+
+        assertEquals(2, servers.size)
+        assertEquals("Server-1", servers[0].name)
+        assertEquals("Server-2", servers[1].name)
+    }
+
+    @Test(expected = SubscriptionParserException.EmptySubscriptionException::class)
+    fun `test empty subscription throws EmptySubscriptionException`() {
+        SubscriptionParser.parse("   \r\n  ")
+    }
+}
