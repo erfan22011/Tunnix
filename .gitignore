@@ -18,3 +18,5 @@ out/
 release/
 *.keystore
 !debug.keystore
+tools/
+*.pyc
