@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Outer Hexagon -->
+    <path
+        android:strokeColor="#00E676"
+        android:strokeWidth="4"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M54,22 L82,38 L82,70 L54,86 L26,70 L26,38 Z" />
+    <!-- Inner S Shape / Ribbon -->
+    <path
+        android:strokeColor="#00DF89"
+        android:strokeWidth="6"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M44,42 L64,42 L46,54 L64,54 L44,66" />
+</vector>
