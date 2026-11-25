@@ -183,9 +183,9 @@ class TunnixVpnService : VpnService() {
     private fun copyAssetsIfNeeded() {
         val assetDir = java.io.File(filesDir, "xray_assets")
         if (!assetDir.exists()) assetDir.mkdirs()
-        listOf("geoip.dat", "geosite.dat").forEach { filename ->
+        listOf("geoip.dat", "geosite.dat", "geoip-only-cn-private.dat").forEach { filename ->
             val dest = java.io.File(assetDir, filename)
-            if (!dest.exists()) {
+            if (!dest.exists() || dest.length() == 0L) {
                 try {
                     assets.open(filename).use { input ->
                         dest.outputStream().use { output ->

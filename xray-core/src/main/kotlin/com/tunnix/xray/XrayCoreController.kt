@@ -34,12 +34,15 @@ object XrayCoreController {
             assetDir.mkdirs()
         }
         System.setProperty("xray.location.asset", assetDir.absolutePath)
+        System.setProperty("v2ray.location.asset", assetDir.absolutePath)
         try {
             libv2ray.Libv2ray.initCoreEnv(assetDir.absolutePath, "")
         } catch (_: Throwable) {
             // Handled when running in host unit test JVM without Android native .so
         }
     }
+
+    private var lastStartupError: String? = null
 
     /**
      * Validates and starts the Xray core with the provided JSON configuration and TUN file descriptor.
@@ -61,7 +64,8 @@ object XrayCoreController {
                 activeConfigJson = configJson
                 Result.success(true)
             } else {
-                Result.failure(IllegalStateException("خطا در اجرای هسته Xray / Failed to start Xray core"))
+                val detail = lastStartupError ?: "خطای ناشناخته در هسته بومی"
+                Result.failure(IllegalStateException("خطا در اجرای هسته Xray: $detail"))
             }
         } catch (e: Exception) {
             Result.failure(e)
@@ -122,6 +126,7 @@ object XrayCoreController {
     }
 
     private fun startNativeCore(configJson: String, tunFd: Int): Boolean {
+        lastStartupError = null
         return try {
             val controller = libv2ray.CoreController(callbackHandler)
             controller.startLoop(configJson, tunFd)
@@ -133,6 +138,7 @@ object XrayCoreController {
         } catch (e: NoClassDefFoundError) {
             true
         } catch (e: Exception) {
+            lastStartupError = e.message ?: e.toString()
             false
         }
     }

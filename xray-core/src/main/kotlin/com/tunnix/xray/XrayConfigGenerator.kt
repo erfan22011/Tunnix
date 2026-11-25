@@ -34,8 +34,9 @@ object XrayConfigGenerator {
         }
         root.add("log", log)
 
-        // 2. Inbounds block (Socks5 & HTTP for TUN proxying)
+        // 2. Inbounds block (TUN interface + Socks5 & HTTP for proxying)
         val inbounds = JsonArray().apply {
+            add(buildTunInbound())
             add(buildSocksInbound(socksPort))
             add(buildHttpInbound(httpPort))
         }
@@ -68,7 +69,13 @@ object XrayConfigGenerator {
                 val privateRule = JsonObject().apply {
                     addProperty("type", "field")
                     addProperty("outboundTag", "direct")
-                    val ipArray = JsonArray().apply { add("geoip:private") }
+                    val ipArray = JsonArray().apply {
+                        add("geoip:private")
+                        add("10.0.0.0/8")
+                        add("172.16.0.0/12")
+                        add("192.168.0.0/16")
+                        add("127.0.0.0/8")
+                    }
                     add("ip", ipArray)
                 }
                 add(privateRule)
@@ -99,6 +106,32 @@ object XrayConfigGenerator {
         root.add("stats", JsonObject())
 
         return gson.toJson(root)
+    }
+
+    private fun buildTunInbound(): JsonObject {
+        return JsonObject().apply {
+            addProperty("tag", "tun-in")
+            addProperty("port", 0)
+            addProperty("protocol", "tun")
+
+            val settings = JsonObject().apply {
+                addProperty("name", "tun0")
+                addProperty("mtu", 1500)
+                addProperty("userLevel", 8)
+            }
+            add("settings", settings)
+
+            val sniffing = JsonObject().apply {
+                addProperty("enabled", true)
+                val destOverride = JsonArray().apply {
+                    add("http")
+                    add("tls")
+                    add("quic")
+                }
+                add("destOverride", destOverride)
+            }
+            add("sniffing", sniffing)
+        }
     }
 
     private fun buildSocksInbound(port: Int): JsonObject {

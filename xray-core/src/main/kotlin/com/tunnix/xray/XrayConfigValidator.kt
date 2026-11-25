@@ -52,20 +52,13 @@ object XrayConfigValidator {
 
             if (network == "xhttp") {
                 val xhttpSettings = streamSettings.getAsJsonObject("xhttpSettings")
-                val mode = xhttpSettings?.get("mode")?.asString
-                if (mode != "stream-up") {
-                    issues.add("XHTTP mode is '$mode', expected 'stream-up'")
+                if (xhttpSettings == null) {
+                    issues.add("XHTTP streamSettings missing 'xhttpSettings'")
                 }
 
-                val extra = xhttpSettings?.getAsJsonObject("extra")
-                if (extra == null || !extra.has("xPaddingBytes")) {
-                    issues.add("XHTTP xhttpSettings missing 'extra.xPaddingBytes'")
-                }
-
-                val downloadSettings = streamSettings.getAsJsonObject("downloadSettings")
-                if (downloadSettings == null) {
-                    issues.add("XHTTP streamSettings missing 'downloadSettings'")
-                } else {
+                // If asymmetric downloadSettings is present, validate its fields
+                val downloadSettings = streamSettings?.getAsJsonObject("downloadSettings")
+                if (downloadSettings != null) {
                     if (!downloadSettings.has("address") || downloadSettings.get("address").asString.isBlank()) {
                         issues.add("downloadSettings missing 'address'")
                     }
