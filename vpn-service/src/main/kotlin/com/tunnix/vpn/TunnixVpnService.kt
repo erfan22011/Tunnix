@@ -79,22 +79,24 @@ class TunnixVpnService : VpnService() {
 
         serviceScope.launch {
             try {
-                // 2. Initialize Xray environment & generate JSON config
-                XrayCoreController.initEnvironment(filesDir)
-                val configJson = XrayConfigGenerator.generate(server)
-
-                // 3. Start Xray-core
-                val startResult = XrayCoreController.start(configJson)
-                if (startResult.isFailure) {
-                    val err = startResult.exceptionOrNull()?.message ?: "خطا در استارت هسته پروکسی"
-                    handleError(err)
-                    return@launch
-                }
-
-                // 4. Establish virtual TUN interface
+                // 2. Establish virtual TUN interface first to obtain descriptor
                 tunDescriptor = TunInterfaceBuilder.establishTun(this@TunnixVpnService, server)
                 if (tunDescriptor == null) {
                     handleError("سیستم‌عامل اجازه ایجاد اینترفیس VPN را نداد / System denied TUN establishment")
+                    return@launch
+                }
+                val tunFd = tunDescriptor!!.fd
+
+                // 3. Initialize Xray environment, assets & generate JSON config
+                copyAssetsIfNeeded()
+                XrayCoreController.initEnvironment(filesDir)
+                val configJson = XrayConfigGenerator.generate(server)
+
+                // 4. Start native Xray-core loop bound directly to TUN fd
+                val startResult = XrayCoreController.start(configJson, tunFd)
+                if (startResult.isFailure) {
+                    val err = startResult.exceptionOrNull()?.message ?: "خطا در استارت هسته پروکسی"
+                    handleError(err)
                     return@launch
                 }
 
@@ -176,6 +178,23 @@ class TunnixVpnService : VpnService() {
             networkCallback?.let { connectivityManager?.unregisterNetworkCallback(it) }
         } catch (_: Exception) {}
         networkCallback = null
+    }
+
+    private fun copyAssetsIfNeeded() {
+        val assetDir = java.io.File(filesDir, "xray_assets")
+        if (!assetDir.exists()) assetDir.mkdirs()
+        listOf("geoip.dat", "geosite.dat").forEach { filename ->
+            val dest = java.io.File(assetDir, filename)
+            if (!dest.exists()) {
+                try {
+                    assets.open(filename).use { input ->
+                        dest.outputStream().use { output ->
+                            input.copyTo(output)
+                        }
+                    }
+                } catch (_: Exception) {}
+            }
+        }
     }
 
     override fun onDestroy() {

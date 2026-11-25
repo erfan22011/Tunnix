@@ -79,6 +79,7 @@ android {
 
 dependencies {
     implementation(project(":core-models"))
+    implementation(project(":libv2ray"))
     implementation(project(":subscription-parser"))
     implementation(project(":config-modifier"))
     implementation(project(":xray-core"))

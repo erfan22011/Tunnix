@@ -49,6 +49,14 @@ jobs:
       - name: Make Gradle Wrapper Executable
         run: chmod +x gradlew
 
+      - name: Download Xray Core AAR
+        run: |
+          mkdir -p libv2ray
+          if [ ! -f libv2ray/libv2ray.aar ]; then
+            echo "Downloading libv2ray.aar (Xray native core)..."
+            curl -L -o libv2ray/libv2ray.aar https://github.com/2dust/AndroidLibXrayLite/releases/download/v26.11.9/libv2ray.aar
+          fi
+
       - name: Build Release APK
         env:
           KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD || 'tunnix2026pass' }}

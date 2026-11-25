@@ -3,6 +3,8 @@
 -keep class com.tunnix.core.models.** { *; }
 -keep class com.tunnix.xray.** { *; }
 -keep class libxray.** { *; }
+-keep class libv2ray.** { *; }
+-keep class go.** { *; }
 -keep class com.google.gson.** { *; }
 
 # Keep native methods

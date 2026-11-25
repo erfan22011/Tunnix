@@ -27,6 +27,7 @@ android {
 
 dependencies {
     implementation(project(":core-models"))
+    api(project(":libv2ray"))
     implementation(libs.gson)
     implementation(libs.kotlinx.coroutines.core)
 

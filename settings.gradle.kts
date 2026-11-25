@@ -23,6 +23,7 @@ dependencyResolutionManagement {
 rootProject.name = "Tunnix"
 
 include(":app")
+include(":libv2ray")
 include(":core-models")
 include(":subscription-parser")
 include(":config-modifier")
