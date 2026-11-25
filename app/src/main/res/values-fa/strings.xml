@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">تانیکس</string>
+    <string name="app_slogan">آزادی، فقط با یک لمس</string>
+    <string name="redeem_code">کد یا لینک سابسکریپشن</string>
+    <string name="submit">تایید</string>
+    <string name="ready_to_connect">آماده اتصال</string>
+    <string name="connecting">در حال اتصال...</string>
+    <string name="waiting_for_response">در انتظار پاسخ. می‌توانید لغو کنید.</string>
+    <string name="connected">متصل شد</string>
+    <string name="reconnecting">در حال اتصال مجدد...</string>
+    <string name="disconnected">قطع شده</string>
+    <string name="connect">اتصال</string>
+    <string name="cancel">لغو</string>
+    <string name="disconnect">قطع اتصال</string>
+    <string name="download">دانلود</string>
+    <string name="upload">آپلود</string>
+    <string name="servers">سرورها</string>
+    <string name="using_server">در حال استفاده: %1$s %2$d</string>
+    <string name="tap_to_select">برای انتخاب لمس کنید</string>
+    <string name="selected">انتخاب شده</string>
+    <string name="settings">تنظیمات</string>
+    <string name="choose_language">زبان برنامه را انتخاب کنید.</string>
+    <string name="english">English (انگلیسی)</string>
+    <string name="persian">فارسی (Persian)</string>
+    <string name="theme">پوسته ظاهری</string>
+    <string name="theme_dark">پوسته تاریک (Dark)</string>
+    <string name="theme_light">پوسته روشن (Light)</string>
+    <string name="theme_system">هماهنگ با سیستم</string>
+    <string name="download_settings_title">تنظیمات اختصاصی مسیر دانلود</string>
+    <string name="app_version">تانیکس · نسخه ۱.۰.۰</string>
+</resources>

@@ -1,0 +1,96 @@
+name: Android Release Build
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  release:
+    name: Build Signed Release APK
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: gradle
+
+      - name: Prepare Release Keystore
+        id: setup_keystore
+        run: |
+          if [ -n "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" ]; then
+            echo "Decoding Keystore from GitHub Secrets..."
+            echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > release.keystore
+            echo "KEYSTORE_EXISTS=true" >> $GITHUB_ENV
+          else
+            echo "Generating clean RSA-4096 Release Keystore to prevent Google Play Protect warnings..."
+            keytool -genkeypair -v \
+              -keystore release.keystore \
+              -alias "${{ secrets.ANDROID_KEY_ALIAS || 'tunnixkey' }}" \
+              -keyalg RSA \
+              -keysize 4096 \
+              -validity 10000 \
+              -storepass "${{ secrets.ANDROID_KEYSTORE_PASSWORD || 'tunnix2026pass' }}" \
+              -keypass "${{ secrets.ANDROID_KEY_PASSWORD || 'tunnix2026pass' }}" \
+              -dname "CN=Tunnix Security, OU=Tunnix Core, O=Tunnix Net, L=Stockholm, ST=Stockholm, C=SE"
+            echo "KEYSTORE_EXISTS=true" >> $GITHUB_ENV
+          fi
+
+      - name: Make Gradle Wrapper Executable
+        run: chmod +x gradlew
+
+      - name: Build Release APK
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD || 'tunnix2026pass' }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS || 'tunnixkey' }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD || 'tunnix2026pass' }}
+        run: ./gradlew assembleRelease --stacktrace
+
+      - name: Sign APK with apksigner (v1, v2, v3 schemes)
+        run: |
+          APK_PATH=$(find app/build/outputs/apk/release -name "*.apk" | head -n 1)
+          if [ -f "$APK_PATH" ]; then
+            echo "Signing APK with full v1/v2/v3 signature schemes: $APK_PATH"
+            $ANDROID_HOME/build-tools/34.0.0/apksigner sign \
+              --ks release.keystore \
+              --ks-pass pass:"${{ secrets.ANDROID_KEYSTORE_PASSWORD || 'tunnix2026pass' }}" \
+              --ks-key-alias "${{ secrets.ANDROID_KEY_ALIAS || 'tunnixkey' }}" \
+              --key-pass pass:"${{ secrets.ANDROID_KEY_PASSWORD || 'tunnix2026pass' }}" \
+              --v1-signing-enabled true \
+              --v2-signing-enabled true \
+              --v3-signing-enabled true \
+              "$APK_PATH"
+            
+            echo "Verifying signature schemes..."
+            $ANDROID_HOME/build-tools/34.0.0/apksigner verify --verbose "$APK_PATH"
+            cp "$APK_PATH" Tunnix-${{ github.ref_name }}.apk
+          fi
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            Tunnix-*.apk
+            app/build/outputs/apk/release/*.apk
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+          name: "Tunnix ${{ github.ref_name }}"
+          body: |
+            ## Tunnix - Freedom, One Tap Away
+            Official Release **${{ github.ref_name }}**
+            
+            - Built with Xray-core with full VLESS XHTTP Asymmetric Routing support.
+            - Dual Theme: Liquid Glass Dark & Light.
+            - Bilingual: Persian (فارسی) & English.
+            - Signed with full v1/v2/v3 signatures for seamless installation without Google Play Protect warnings.

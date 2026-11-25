@@ -1,0 +1,2 @@
+-keep class com.tunnix.xray.** { *; }
+-keep class libxray.** { *; }
