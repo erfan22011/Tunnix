@@ -3,18 +3,18 @@ package com.tunnix.core.models
 import java.io.Serializable
 
 data class DownloadTlsSettings(
-    val serverName: String = "ovv.genus.ir",
+    val serverName: String = "ovapp.genus.ir",
     val alpn: List<String> = listOf("h2"),
     val fingerprint: String = "chrome"
 ) : Serializable
 
 data class DownloadXhttpSettings(
-    val host: String = "ovv.genus.ir",
+    val host: String = "ovapp.genus.ir",
     val path: String = "/xhttp"
 ) : Serializable
 
 data class DownloadSettingsConfig(
-    val address: String = "gama.uploadtg.ir",
+    val address: String = "ipapp.genus.ir",
     val port: Int = 2053,
     val network: String = "xhttp",
     val security: String = "tls",
