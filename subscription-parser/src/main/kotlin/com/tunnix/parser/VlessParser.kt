@@ -81,6 +81,7 @@ object VlessParser {
             val encryption = queryParams["encryption"] ?: "none"
             val mode = queryParams["mode"] ?: "auto"
             val extra = queryParams["extra"] ?: ""
+            val xPaddingBytes = queryParams["x_padding_bytes"] ?: queryParams["xPaddingBytes"] ?: ""
 
             val serverName = remark.ifBlank { "$address:$port" }
 
@@ -101,6 +102,7 @@ object VlessParser {
                 flow = flow,
                 encryption = encryption,
                 mode = mode,
+                xPaddingBytes = xPaddingBytes,
                 extraJson = extra,
                 rawUri = trimmed,
                 originalUri = trimmed,

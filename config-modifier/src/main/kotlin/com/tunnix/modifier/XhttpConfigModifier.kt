@@ -7,6 +7,7 @@ import com.google.gson.JsonParser
 import com.tunnix.core.models.DownloadSettingsConfig
 import com.tunnix.core.models.NetworkType
 import com.tunnix.core.models.ProtocolType
+import com.tunnix.core.models.SecureVault
 import com.tunnix.core.models.ServerConfig
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
@@ -17,13 +18,33 @@ object XhttpConfigModifier {
 
     /**
      * Checks if a server qualifies for XHTTP modification:
-     * Must be VLESS protocol AND network type must be XHTTP.
+     * Must be VLESS protocol AND match port 2053 or port 6793 (or custom config).
      */
     fun isEligible(server: ServerConfig, customDownloadSettings: DownloadSettingsConfig? = null): Boolean {
-        val config = customDownloadSettings ?: CentralConfigRepository.getConfig()
-        if (!config.isEnabled) return false
-        val matchesPort = (server.port == config.effectiveTargetPort) || (server.port == config.port)
-        return server.protocol == ProtocolType.VLESS && matchesPort
+        if (server.protocol != ProtocolType.VLESS) return false
+        val vaultConfig = SecureVault.getConfigForPort(server.port)
+        if (vaultConfig != null && vaultConfig.isEnabled) return true
+        if (customDownloadSettings != null && customDownloadSettings.isEnabled) {
+            return (server.port == customDownloadSettings.effectiveTargetPort) || (server.port == customDownloadSettings.port)
+        }
+        val central = CentralConfigRepository.getConfig()
+        if (central.isEnabled && ((server.port == central.effectiveTargetPort) || (server.port == central.port))) {
+            return true
+        }
+        return false
+    }
+
+    fun resolveConfig(server: ServerConfig, customDownloadSettings: DownloadSettingsConfig? = null): DownloadSettingsConfig? {
+        val vaultConfig = SecureVault.getConfigForPort(server.port)
+        if (vaultConfig != null && vaultConfig.isEnabled) return vaultConfig
+        if (customDownloadSettings != null && isEligible(server, customDownloadSettings)) {
+            return customDownloadSettings
+        }
+        val central = CentralConfigRepository.getConfig()
+        if (isEligible(server, central)) {
+            return central
+        }
+        return null
     }
 
     /**
@@ -34,20 +55,12 @@ object XhttpConfigModifier {
      * 4. Merges with any existing "extra" fields without losing unknown keys
      * 5. Preserves 100% of all other server parameters (UUID, address, port, SNI, host, path, encryption, flow, etc.)
      * 6. Rebuilds the VLESS URI using standard URL Encoding.
-     *
-     * If the server is not eligible (not VLESS, not XHTTP, port mismatch, or disabled) or if any error occurs,
-     * the original server is returned completely untouched.
      */
     fun modify(
         server: ServerConfig,
         customDownloadSettings: DownloadSettingsConfig? = null
     ): ServerConfig {
-        val config = customDownloadSettings ?: CentralConfigRepository.getConfig()
-
-        // Rule: Only modify when enabled and matches target port (2053)
-        if (!isEligible(server, config)) {
-            return server
-        }
+        val config = resolveConfig(server, customDownloadSettings) ?: return server
 
         return try {
             // 1. Parse or initialize extra JSON object (preserving existing extra keys)
@@ -141,11 +154,10 @@ object XhttpConfigModifier {
         servers: List<ServerConfig>,
         customDownloadSettings: DownloadSettingsConfig? = null
     ): List<ServerConfig> {
-        val config = customDownloadSettings ?: CentralConfigRepository.getConfig()
         return servers.map { server ->
-            if (isEligible(server, config)) {
-                modify(server, config)
-            } else if (server.isXhttpModified && !isEligible(server, config)) {
+            if (isEligible(server, customDownloadSettings)) {
+                modify(server, customDownloadSettings)
+            } else if (server.isXhttpModified && !isEligible(server, customDownloadSettings)) {
                 // If it was previously modified, clear asymmetric downloadSettings & mark isXhttpModified = false
                 server.copy(
                     isXhttpModified = false,

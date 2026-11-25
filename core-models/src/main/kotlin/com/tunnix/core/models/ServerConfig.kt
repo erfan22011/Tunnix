@@ -6,6 +6,7 @@ enum class ProtocolType {
     VLESS,
     VMESS,
     TROJAN,
+    SHADOWSOCKS,
     UNKNOWN
 }
 

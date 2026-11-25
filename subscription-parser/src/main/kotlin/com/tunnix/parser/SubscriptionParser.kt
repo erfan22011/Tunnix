@@ -19,7 +19,8 @@ object SubscriptionParser {
         val decoded = Base64Helper.decodeToString(trimmed)
         if (decoded != null && (decoded.contains("vless://", ignoreCase = true) ||
                     decoded.contains("vmess://", ignoreCase = true) ||
-                    decoded.contains("trojan://", ignoreCase = true))) {
+                    decoded.contains("trojan://", ignoreCase = true) ||
+                    decoded.contains("ss://", ignoreCase = true))) {
             textToParse = decoded
         }
 
@@ -35,6 +36,7 @@ object SubscriptionParser {
                 cleanLine.startsWith("vless://", ignoreCase = true) -> VlessParser.parse(cleanLine)
                 cleanLine.startsWith("vmess://", ignoreCase = true) -> VmessParser.parse(cleanLine)
                 cleanLine.startsWith("trojan://", ignoreCase = true) -> TrojanParser.parse(cleanLine)
+                cleanLine.startsWith("ss://", ignoreCase = true) -> ShadowsocksParser.parse(cleanLine)
                 else -> null
             }
 

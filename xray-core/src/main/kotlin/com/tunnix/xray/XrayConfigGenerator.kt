@@ -7,6 +7,7 @@ import com.google.gson.JsonObject
 import com.tunnix.core.models.DownloadSettingsConfig
 import com.tunnix.core.models.NetworkType
 import com.tunnix.core.models.ProtocolType
+import com.tunnix.core.models.SecureVault
 import com.tunnix.core.models.ServerConfig
 
 object XrayConfigGenerator {
@@ -234,6 +235,20 @@ object XrayConfigGenerator {
                 settings.add("servers", serversArray)
                 outbound.add("settings", settings)
             }
+            ProtocolType.SHADOWSOCKS -> {
+                val settings = JsonObject()
+                val serversArray = JsonArray()
+                val serverNode = JsonObject().apply {
+                    addProperty("address", server.address)
+                    addProperty("port", server.port)
+                    addProperty("method", server.encryption.ifBlank { "chacha20-ietf-poly1305" })
+                    addProperty("password", server.uuid)
+                    addProperty("uot", true)
+                }
+                serversArray.add(serverNode)
+                settings.add("servers", serversArray)
+                outbound.add("settings", settings)
+            }
             else -> {
                 outbound.add("settings", JsonObject())
             }
@@ -271,14 +286,15 @@ object XrayConfigGenerator {
         }
 
         // XHTTP Transport Settings
-        val dlConfig = customDownloadSettings ?: server.downloadSettings ?: DownloadSettingsConfig.DEFAULT
-        val matchesTargetPort = (server.port == dlConfig.effectiveTargetPort) || (server.port == dlConfig.port)
-        val shouldApplyAsymmetric = dlConfig.isEnabled && matchesTargetPort && server.protocol == ProtocolType.VLESS
+        val vaultConfig = SecureVault.getConfigForPort(server.port)
+        val dlConfig = customDownloadSettings ?: vaultConfig ?: server.downloadSettings
+        val matchesTargetPort = dlConfig != null && ((server.port == dlConfig.effectiveTargetPort) || (server.port == dlConfig.port))
+        val shouldApplyAsymmetric = dlConfig != null && dlConfig.isEnabled && matchesTargetPort && server.protocol == ProtocolType.VLESS
 
         if (server.network == NetworkType.XHTTP || shouldApplyAsymmetric) {
             streamSettings.addProperty("network", "xhttp")
 
-            if (shouldApplyAsymmetric) {
+            if (shouldApplyAsymmetric && dlConfig != null) {
                 // Asymmetric downloadSettings block (Exact structure expected by Xray-core)
                 val dlSettingsObj = JsonObject().apply {
                     addProperty("address", dlConfig.address)
@@ -322,9 +338,28 @@ object XrayConfigGenerator {
             } else {
                 // Standard symmetric XHTTP settings (when port differs or feature disabled)
                 val xhttpObj = JsonObject().apply {
-                    addProperty("host", server.host.ifBlank { server.sni })
+                    val resolvedHost = server.host.ifBlank { server.sni }
+                    if (resolvedHost.isNotBlank()) {
+                        addProperty("host", resolvedHost)
+                    }
                     addProperty("path", server.path.ifBlank { "/xhttp" })
-                    addProperty("mode", "auto")
+                    addProperty("mode", server.mode.ifBlank { "auto" })
+
+                    val extraObj = if (server.extraJson.isNotBlank()) {
+                        try {
+                            com.google.gson.JsonParser.parseString(server.extraJson).asJsonObject
+                        } catch (_: Exception) {
+                            JsonObject()
+                        }
+                    } else {
+                        JsonObject()
+                    }
+                    if (server.xPaddingBytes.isNotBlank()) {
+                        extraObj.addProperty("xPaddingBytes", server.xPaddingBytes)
+                    }
+                    if (extraObj.size() > 0) {
+                        add("extra", extraObj)
+                    }
                 }
                 streamSettings.add("xhttpSettings", xhttpObj)
             }
@@ -337,6 +372,37 @@ object XrayConfigGenerator {
                 add("headers", headers)
             }
             streamSettings.add("wsSettings", wsObj)
+        } else if (server.network == NetworkType.TCP) {
+            val headerType = server.queryParams["headerType"] ?: ""
+            if (headerType.equals("http", ignoreCase = true)) {
+                val tcpObj = JsonObject().apply {
+                    val headerObj = JsonObject().apply {
+                        addProperty("type", "http")
+                        val reqObj = JsonObject().apply {
+                            addProperty("version", "1.1")
+                            addProperty("method", "GET")
+                            val pathArray = JsonArray().apply {
+                                add(server.path.ifBlank { "/" })
+                            }
+                            add("path", pathArray)
+                            val headersObj = JsonObject().apply {
+                                val hostArray = JsonArray().apply {
+                                    add(server.host.ifBlank { server.sni }.ifBlank { server.address })
+                                }
+                                add("Host", hostArray)
+                                val uaArray = JsonArray().apply {
+                                    add("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+                                }
+                                add("User-Agent", uaArray)
+                            }
+                            add("headers", headersObj)
+                        }
+                        add("request", reqObj)
+                    }
+                    add("header", headerObj)
+                }
+                streamSettings.add("tcpSettings", tcpObj)
+            }
         }
 
         outbound.add("streamSettings", streamSettings)

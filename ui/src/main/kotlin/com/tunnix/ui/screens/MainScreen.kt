@@ -28,6 +28,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.tunnix.core.models.AppLanguage
@@ -196,7 +197,7 @@ fun MainScreen(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = if (isFa) "سرورها" else "Servers",
+                text = if (isFa) "سرورها (${servers.size})" else "Servers (${servers.size})",
                 color = TunnixStyle.glass.textPrimary,
                 fontSize = 17.sp,
                 fontWeight = FontWeight.SemiBold
@@ -205,13 +206,12 @@ fun MainScreen(
             if (selectedServer != null) {
                 val flag = getFlagEmoji(selectedServer.countryCode, selectedServer.name)
                 Text(
-                    text = if (isFa) {
-                        "در حال استفاده: $flag ${selectedServer.name} (${servers.size})"
-                    } else {
-                        "Using $flag ${selectedServer.name}  ${servers.size}"
-                    },
+                    text = if (isFa) "فعال: $flag ${selectedServer.name}" else "Using: $flag ${selectedServer.name}",
                     color = TunnixStyle.glass.textSecondary,
-                    fontSize = 12.sp
+                    fontSize = 12.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false).padding(start = 12.dp)
                 )
             }
         }

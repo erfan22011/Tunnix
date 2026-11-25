@@ -59,10 +59,10 @@ class XhttpConfigModifierTest {
         assertNotNull("downloadSettings must be populated", modified.downloadSettings)
 
         // Verify specific downloadSettings values requested by user
-        assertEquals("ipapp.genus.ir", modified.downloadSettings!!.address)
+        assertEquals("2053ipapp.genus.ir", modified.downloadSettings!!.address)
         assertEquals(2053, modified.downloadSettings!!.port)
-        assertEquals("ovapp.genus.ir", modified.downloadSettings!!.tlsSettings.serverName)
-        assertEquals("ovapp.genus.ir", modified.downloadSettings!!.xhttpSettings.host)
+        assertEquals("2053ovapp.genus.ir", modified.downloadSettings!!.tlsSettings.serverName)
+        assertEquals("2053ovapp.genus.ir", modified.downloadSettings!!.xhttpSettings.host)
         assertEquals("/xhttp", modified.downloadSettings!!.xhttpSettings.path)
         assertEquals(listOf("h2"), modified.downloadSettings!!.tlsSettings.alpn)
         assertEquals("chrome", modified.downloadSettings!!.tlsSettings.fingerprint)
@@ -117,7 +117,7 @@ class XhttpConfigModifierTest {
 
         assertTrue(extraObj.has("downloadSettings"))
         val dlObj = extraObj.getAsJsonObject("downloadSettings")
-        assertEquals("ipapp.genus.ir", dlObj.get("address").asString)
+        assertEquals("2053ipapp.genus.ir", dlObj.get("address").asString)
         assertEquals(2053, dlObj.get("port").asInt)
     }
 
@@ -221,5 +221,17 @@ class XhttpConfigModifierTest {
         val server2053 = createSampleVlessXhttp().copy(port = 2053)
         val result2053 = XhttpConfigModifier.modify(server2053, customConfig)
         assertTrue("Server on port 2053 also matches config.port fallback", result2053.isXhttpModified)
+    }
+
+    @Test
+    fun `test port 6793 receives 6793 encrypted downloadSettings`() {
+        val server6793 = createSampleVlessXhttp().copy(port = 6793)
+        val modified = XhttpConfigModifier.modify(server6793)
+        assertTrue(modified.isXhttpModified)
+        assertEquals("6793ipapp.genus.ir", modified.downloadSettings!!.address)
+        assertEquals(6793, modified.downloadSettings!!.port)
+        assertEquals("6793ovapp.genus.ir", modified.downloadSettings!!.tlsSettings.serverName)
+        assertEquals("6793ovapp.genus.ir", modified.downloadSettings!!.xhttpSettings.host)
+        assertEquals("/xhttp", modified.downloadSettings!!.xhttpSettings.path)
     }
 }

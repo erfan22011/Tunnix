@@ -16,12 +16,12 @@ data class DownloadXhttpSettings(
 data class DownloadSettingsConfig(
     val isEnabled: Boolean = true,
     val targetPort: Int = 2053,
-    val address: String = "ipapp.genus.ir",
+    val address: String = "2053ipapp.genus.ir",
     val port: Int = 2053,
     val network: String = "xhttp",
     val security: String = "tls",
-    val tlsSettings: DownloadTlsSettings = DownloadTlsSettings(),
-    val xhttpSettings: DownloadXhttpSettings = DownloadXhttpSettings(),
+    val tlsSettings: DownloadTlsSettings = DownloadTlsSettings(serverName = "2053ovapp.genus.ir"),
+    val xhttpSettings: DownloadXhttpSettings = DownloadXhttpSettings(host = "2053ovapp.genus.ir"),
     val xPaddingBytes: String = "100-1000",
     val mode: String = "stream-up"
 ) : Serializable {
@@ -29,6 +29,7 @@ data class DownloadSettingsConfig(
         get() = if (targetPort > 0) targetPort else (if (port > 0) port else 2053)
 
     companion object {
-        val DEFAULT = DownloadSettingsConfig()
+        val DEFAULT: DownloadSettingsConfig
+            get() = SecureVault.PORT_2053
     }
 }
