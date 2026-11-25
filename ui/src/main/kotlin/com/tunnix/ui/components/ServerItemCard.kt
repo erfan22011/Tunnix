@@ -1,0 +1,153 @@
+package com.tunnix.ui.components
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.Dns
+import androidx.compose.material.ripple.rememberRipple
+import androidx.compose.material3.Icon
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.tunnix.core.models.ServerConfig
+import com.tunnix.core.models.VpnState
+import com.tunnix.ui.theme.EmeraldGreen
+import com.tunnix.ui.theme.StatusConnecting
+import com.tunnix.ui.theme.TunnixStyle
+
+@Composable
+fun ServerItemCard(
+    server: ServerConfig,
+    isSelected: Boolean,
+    vpnState: VpnState,
+    onSelect: () -> Unit,
+    modifier: Modifier = Modifier,
+    tapToSelectLabel: String = "Tap to select",
+    selectedLabel: String = "Selected",
+    connectingLabel: String = "Connecting...",
+    connectedLabel: String = "Connected"
+) {
+    val isConnected = isSelected && vpnState is VpnState.Connected
+    val isConnecting = isSelected && vpnState is VpnState.Connecting
+
+    val statusText = when {
+        isConnected -> connectedLabel
+        isConnecting -> connectingLabel
+        isSelected -> selectedLabel
+        else -> tapToSelectLabel
+    }
+
+    val statusColor = when {
+        isConnected -> EmeraldGreen
+        isConnecting -> StatusConnecting
+        isSelected -> TunnixStyle.glass.textPrimary
+        else -> TunnixStyle.glass.textMuted
+    }
+
+    val flagEmoji = getFlagEmoji(server.countryCode, server.name)
+
+    GlassCard(
+        modifier = modifier
+            .fillMaxWidth()
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = rememberRipple(bounded = true, color = EmeraldGreen),
+                onClick = onSelect
+            ),
+        shape = RoundedCornerShape(16.dp),
+        borderWidth = if (isSelected) 1.5.dp else 1.dp,
+        borderColor = if (isSelected) EmeraldGreen.copy(alpha = 0.5f) else TunnixStyle.glass.glassBorder
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Server Rack Icon Container
+            Box(
+                modifier = Modifier
+                    .size(42.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(
+                        if (TunnixStyle.glass.isDark) Color(0x331E293B) else Color(0x1F00E676)
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.Dns,
+                    contentDescription = null,
+                    tint = if (isSelected) EmeraldGreen else TunnixStyle.glass.textSecondary,
+                    modifier = Modifier.size(22.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.width(14.dp))
+
+            // Server Info
+            Column(
+                modifier = Modifier.weight(1f)
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = "$flagEmoji  ${server.name}",
+                        color = TunnixStyle.glass.textPrimary,
+                        fontSize = 15.sp,
+                        fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium
+                    )
+                }
+
+                Text(
+                    text = statusText,
+                    color = statusColor,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Normal
+                )
+            }
+
+            // Selection Checkmark
+            if (isSelected) {
+                Icon(
+                    imageVector = Icons.Rounded.Check,
+                    contentDescription = "Selected",
+                    tint = if (isConnected) EmeraldGreen else TunnixStyle.glass.textPrimary,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+        }
+    }
+}
+
+fun getFlagEmoji(countryCode: String, serverName: String): String {
+    val nameLower = serverName.lowercase()
+    return when {
+        nameLower.contains("netherland") || nameLower.contains("nl") -> "🇳🇱"
+        nameLower.contains("swiss") || nameLower.contains("switzerland") || nameLower.contains("ch") -> "🇨🇭"
+        nameLower.contains("germany") || nameLower.contains("de") -> "🇩🇪"
+        nameLower.contains("france") || nameLower.contains("fr") -> "🇫🇷"
+        nameLower.contains("united kingdom") || nameLower.contains("uk") || nameLower.contains("london") -> "🇬🇧"
+        nameLower.contains("united states") || nameLower.contains("usa") || nameLower.contains("us") -> "🇺🇸"
+        nameLower.contains("canada") || nameLower.contains("ca") -> "🇨🇦"
+        nameLower.contains("finland") || nameLower.contains("fi") -> "🇫🇮"
+        nameLower.contains("turkey") || nameLower.contains("tr") -> "🇹🇷"
+        else -> "🌐"
+    }
+}

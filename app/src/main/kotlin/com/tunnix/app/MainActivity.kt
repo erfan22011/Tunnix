@@ -6,17 +6,14 @@ import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
-import com.tunnix.ui.theme.TunnixTheme
 import com.tunnix.ui.navigation.TunnixNavigation
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            TunnixTheme {
-                Surface(modifier = Modifier.fillMaxSize()) {
-                    TunnixNavigation()
-                }
+            Surface(modifier = Modifier.fillMaxSize()) {
+                TunnixNavigation()
             }
         }
     }
