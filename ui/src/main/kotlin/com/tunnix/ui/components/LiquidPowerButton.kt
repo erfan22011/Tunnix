@@ -1,5 +1,6 @@
 package com.tunnix.ui.components
 
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
@@ -81,12 +82,18 @@ fun LiquidPowerButton(
     val isConnecting = vpnState is VpnState.Connecting
     val isError = vpnState is VpnState.Error
 
-    val activeColor = when {
+    val targetActiveColor = when {
         isConnected -> EmeraldGreen
         isConnecting -> StatusConnecting
         isError -> Color(0xFFFF5252)
         else -> EmeraldGreen
     }
+
+    val activeColor by animateColorAsState(
+        targetValue = targetActiveColor,
+        animationSpec = tween(durationMillis = 350, easing = FastOutSlowInEasing),
+        label = "powerButtonActiveColor"
+    )
 
     val buttonLabel = when {
         isConnected -> disconnectText

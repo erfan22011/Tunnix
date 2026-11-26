@@ -1,5 +1,8 @@
 package com.tunnix.ui.screens
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -23,6 +26,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -62,12 +66,18 @@ fun MainScreen(
     val isConnected = vpnState is VpnState.Connected
     val isConnecting = vpnState is VpnState.Connecting
 
-    val statusDotColor = when {
+    val targetStatusDotColor = when {
         isConnected -> EmeraldGreen
         isConnecting -> StatusConnecting
         vpnState is VpnState.Error -> Color(0xFFFF5252)
         else -> StatusDisconnected
     }
+
+    val statusDotColor by animateColorAsState(
+        targetValue = targetStatusDotColor,
+        animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing),
+        label = "statusDotColor"
+    )
 
     val statusTitle = when (vpnState) {
         is VpnState.Connected -> if (isFa) "متصل شد" else "Connected"

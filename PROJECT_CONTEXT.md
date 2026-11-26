@@ -7,10 +7,12 @@
 ## 1. Release History & Baselines
 
 * **App Name:** Tunnix (`com.tunnix.app`)
-* **Current Active Release:** `1.0.2` (`versionCode = 3`, `versionName = "1.0.2"`)
-* **Previous Stable Baseline:** `1.0.1` (`versionCode = 2`, `versionName = "1.0.1"`, commit: `f670292`)
+* **Current Active Release:** `1.0.3` (`versionCode = 4`, `versionName = "1.0.3"`)
+* **Previous Stable Releases:**
+  * `1.0.2` (`versionCode = 3`, `versionName = "1.0.2"`, commit: `39c3f9e`)
+  * `1.0.1` (`versionCode = 2`, `versionName = "1.0.1"`, commit: `f670292`)
 * **Permanent Baseline Tag:** `stable-baseline-v1.0.1`
-* **Release Tag:** `v1.0.2`
+* **Release Tags:** `v1.0.1`, `v1.0.2`, `v1.0.3`
 * **Instant Rollback Command to v1.0.1:**
   ```bash
   git checkout main && git reset --hard stable-baseline-v1.0.1 && git clean -fd
@@ -18,7 +20,24 @@
 
 ---
 
-## 1.1 What was Fixed & Added in Version 1.0.2
+## 1.1 What was Fixed & Added in Version 1.0.3
+
+1. **Dynamic System Bars Color Coordination (Status Bar & Navigation Bar):**
+   * Configured `SideEffect` in `TunnixTheme` using `WindowCompat.getInsetsController`.
+   * In Light Mode: `statusBarColor` and `navigationBarColor` match `PearlBackground` (`#F8FAFC`), and system icons/navigation buttons automatically flip to dark (`isAppearanceLightStatusBars = true`, `isAppearanceLightNavigationBars = true`).
+   * In Dark Mode: `statusBarColor` and `navigationBarColor` match `ObsidianBackground` (`#0B0F17`) with light system icons.
+2. **Smooth Fluid Screen Transitions:**
+   * Updated `TunnixNavigation.kt` to combine `FastOutSlowInEasing` slide transitions with smooth `fadeIn` (320ms) and `fadeOut` (220ms).
+3. **Smooth Interactive Card Selection & Ripple:**
+   * Added `animateColorAsState` and `animateDpAsState` to `ServerItemCard.kt` for card border color, border width, and rack icon background.
+   * Selection checkmark now scales and fades smoothly with `AnimatedVisibility(enter = fadeIn + scaleIn, exit = fadeOut + scaleOut)`.
+4. **Smooth Power Button & Connection Indicator:**
+   * `LiquidPowerButton` active color transitions smoothly with `animateColorAsState(tween(350, FastOutSlowInEasing))`.
+   * Connection status dot in `MainScreen` morphs smoothly with `animateColorAsState(tween(300, FastOutSlowInEasing))`.
+
+---
+
+## 1.2 What was Fixed & Added in Version 1.0.2
 
 1. **VLESS Certificate Pinning (`pcs` parameter):**
    * Supported `pcs` (Pinned Peer Certificate SHA-256) by mapping it to `tlsSettings.pinnedPeerCertSha256` in `XrayConfigGenerator.kt`.
