@@ -40,7 +40,6 @@ data class UiState(
     val isLoading: Boolean = false,
     val errorMessage: String? = null,
     val hasSubscription: Boolean = false,
-    val bypassIran: Boolean = true,
     val isInitialized: Boolean = false
 )
 
@@ -135,7 +134,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     servers = updatedServers,
                     selectedServer = updatedSelected,
                     hasSubscription = prefs.subscriptionUrl.isNotBlank(),
-                    bypassIran = prefs.bypassIran,
                     isInitialized = true
                 )
 
@@ -259,7 +257,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 } else {
                     server
                 }
-                VpnTunnelManager.startVpn(getApplication(), preparedServer, bypassIran = _uiState.value.bypassIran)
+                VpnTunnelManager.startVpn(getApplication(), preparedServer)
             }
         }
     }
@@ -285,35 +283,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     } else {
                         server
                     }
-                    val bypassIran = _uiState.value.bypassIran
-                    VpnTunnelManager.startVpn(context, preparedServer, bypassIran = bypassIran)
+                    VpnTunnelManager.startVpn(context, preparedServer)
                 } else {
                     _uiState.value = _uiState.value.copy(errorMessage = "هیچ سروری انتخاب نشده است")
                 }
             }
             is VpnState.Connected, is VpnState.Connecting, is VpnState.Reconnecting -> {
                 VpnTunnelManager.stopVpn(context)
-            }
-        }
-    }
-
-    fun changeBypassIran(enabled: Boolean) {
-        viewModelScope.launch {
-            dataStore.saveBypassIran(enabled)
-            _uiState.value = _uiState.value.copy(bypassIran = enabled)
-            // If VPN is active, restart with new routing immediately
-            if (_uiState.value.vpnState is VpnState.Connected) {
-                val server = _uiState.value.selectedServer
-                if (server != null) {
-                    VpnTunnelManager.stopVpn(getApplication())
-                    val currentConfig = _uiState.value.downloadSettings
-                    val preparedServer = if (XhttpConfigModifier.isEligible(server, currentConfig)) {
-                        XhttpConfigModifier.modify(server, currentConfig)
-                    } else {
-                        server
-                    }
-                    VpnTunnelManager.startVpn(getApplication(), preparedServer, bypassIran = enabled)
-                }
             }
         }
     }

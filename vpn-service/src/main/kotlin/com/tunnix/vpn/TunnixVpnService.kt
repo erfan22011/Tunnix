@@ -57,10 +57,8 @@ class TunnixVpnService : VpnService() {
                     intent.getSerializableExtra(VpnTunnelManager.EXTRA_SERVER) as? ServerConfig
                 }
 
-                val bypassIran = intent.getBooleanExtra(VpnTunnelManager.EXTRA_BYPASS_IRAN, false)
-
                 if (server != null) {
-                    startTunnel(server, bypassIran)
+                    startTunnel(server)
                 } else {
                     // Prevent ForegroundServiceDidNotStartInTimeException on Android 8+
                     val fallbackConfig = ServerConfig(
@@ -103,7 +101,7 @@ class TunnixVpnService : VpnService() {
         stopTunnel(targetError = null)
     }
 
-    private fun startTunnel(server: ServerConfig, bypassIran: Boolean = false) {
+    private fun startTunnel(server: ServerConfig) {
         // Cancel any pending transition to prevent start/stop interleaving races
         transitionJob?.cancel()
         activeServer = server
@@ -152,7 +150,7 @@ class TunnixVpnService : VpnService() {
                         copyAssetsIfNeeded()
                         XrayCoreController.initEnvironment(filesDir)
                         val dlConfig = CentralConfigRepository.getConfig()
-                        XrayConfigGenerator.generate(server, customDownloadSettings = dlConfig, bypassIran = bypassIran)
+                        XrayConfigGenerator.generate(server, customDownloadSettings = dlConfig)
                     }
 
                     // 6. Start native Xray-core loop bound directly to TUN fd

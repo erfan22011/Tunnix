@@ -21,7 +21,6 @@ object VpnTunnelManager {
     const val ACTION_START = "com.tunnix.vpn.ACTION_START"
     const val ACTION_STOP = "com.tunnix.vpn.ACTION_STOP"
     const val EXTRA_SERVER = "extra_server"
-    const val EXTRA_BYPASS_IRAN = "extra_bypass_iran"
 
     fun updateState(newState: VpnState) {
         _vpnState.value = newState
@@ -33,7 +32,7 @@ object VpnTunnelManager {
         }
     }
 
-    fun startVpn(context: Context, server: ServerConfig, bypassIran: Boolean = false) {
+    fun startVpn(context: Context, server: ServerConfig) {
         if (isConnectingOrConnected.get() && activeServer?.id == server.id) {
             return // Already connecting or connected to this server
         }
@@ -44,7 +43,6 @@ object VpnTunnelManager {
         val intent = Intent(context, TunnixVpnService::class.java).apply {
             action = ACTION_START
             putExtra(EXTRA_SERVER, server)
-            putExtra(EXTRA_BYPASS_IRAN, bypassIran)
         }
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {

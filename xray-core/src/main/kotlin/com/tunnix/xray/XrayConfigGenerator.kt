@@ -26,53 +26,9 @@ object XrayConfigGenerator {
         server: ServerConfig,
         socksPort: Int = DEFAULT_SOCKS_PORT,
         httpPort: Int = DEFAULT_HTTP_PORT,
-        customDownloadSettings: DownloadSettingsConfig? = null,
-        bypassIran: Boolean = false
+        customDownloadSettings: DownloadSettingsConfig? = null
     ): String {
         val root = JsonObject()
-
-        // 0. Collect all domains and IPs belonging to the config so they are strictly exempted
-        // from domestic Iranian bypass rules (preventing connection drops when server/SNI is Iranian)
-        val exemptDomains = mutableSetOf<String>()
-        val exemptIps = mutableSetOf<String>()
-
-        fun addExemptTarget(raw: String?) {
-            if (raw.isNullOrBlank()) return
-            val clean = raw.trim().lowercase()
-            val host = if (clean.startsWith("[") && clean.contains("]")) {
-                clean.substringAfter("[").substringBefore("]")
-            } else if (clean.contains(":") && !clean.contains("/")) {
-                clean.substringBefore(":")
-            } else {
-                clean
-            }
-            if (host.isBlank()) return
-
-            if (isIpAddress(host)) {
-                exemptIps.add(host)
-            } else {
-                exemptDomains.add(host)
-            }
-        }
-
-        // Primary server endpoints
-        addExemptTarget(server.address)
-        addExemptTarget(server.sni)
-        addExemptTarget(server.host)
-
-        // Custom download settings endpoints (e.g. 2053ipapp.genus.ir, 2053ovapp.genus.ir)
-        customDownloadSettings?.let { dl ->
-            addExemptTarget(dl.address)
-            addExemptTarget(dl.tlsSettings.serverName)
-            addExemptTarget(dl.xhttpSettings.host)
-        }
-
-        // Server-level download settings endpoints
-        server.downloadSettings?.let { dl ->
-            addExemptTarget(dl.address)
-            addExemptTarget(dl.tlsSettings.serverName)
-            addExemptTarget(dl.xhttpSettings.host)
-        }
 
         // 1. Log block
         val log = JsonObject().apply {
@@ -128,112 +84,6 @@ object XrayConfigGenerator {
                     add("ip", ipArray)
                 }
                 add(privateRule)
-
-                // Top Priority Rule: Exempt config domains and IPs from domestic bypass
-                // This ensures connections to the VPN server itself (or its Iranian SNI/CDN/IP)
-                // ALWAYS route to the proxy outbound, never intercepted by direct rules.
-                if (bypassIran && (exemptDomains.isNotEmpty() || exemptIps.isNotEmpty())) {
-                    val exemptRule = JsonObject().apply {
-                        addProperty("type", "field")
-                        addProperty("outboundTag", "proxy")
-                        if (exemptDomains.isNotEmpty()) {
-                            val dArray = JsonArray().apply {
-                                exemptDomains.forEach { d ->
-                                    add("full:$d")
-                                    add("domain:$d")
-                                }
-                            }
-                            add("domain", dArray)
-                        }
-                        if (exemptIps.isNotEmpty()) {
-                            val iArray = JsonArray().apply {
-                                exemptIps.forEach { ip ->
-                                    add(ip)
-                                }
-                            }
-                            add("ip", iArray)
-                        }
-                    }
-                    add(exemptRule)
-                }
-
-                // Iranian Domestic Traffic -> Direct (Instant bypass, pure domain rules, zero external .dat dependency)
-                if (bypassIran) {
-                    val iranDomainRule = JsonObject().apply {
-                        addProperty("type", "field")
-                        addProperty("outboundTag", "direct")
-                        val domainArray = JsonArray().apply {
-                            // Only include domains that are NOT in exemptDomains
-                            val standardDomains = listOf(
-                                "regexp:.*\\.ir$",
-                                "domain:ir",
-                                "domain:digikala.com",
-                                "domain:aparat.com",
-                                "domain:telewebion.com",
-                                "domain:snapp.ir",
-                                "domain:divar.ir",
-                                "domain:torob.com",
-                                "domain:eitaa.com",
-                                "domain:rubika.ir",
-                                "domain:bale.ai",
-                                "domain:splus.ir",
-                                "domain:shaparak.ir",
-                                "domain:cafebazaar.ir",
-                                "domain:myket.ir",
-                                "domain:filimo.com",
-                                "domain:namava.ir",
-                                "domain:varzesh3.com",
-                                "domain:sheypoor.com",
-                                "domain:tci.ir",
-                                "domain:mci.ir",
-                                "domain:irancell.ir",
-                                "domain:rightel.ir",
-                                "domain:bankmellat.ir",
-                                "domain:bmi.ir",
-                                "domain:bsi.ir",
-                                "domain:tejaratbank.ir",
-                                "domain:bpi.ir",
-                                "domain:enbank.ir",
-                                "domain:sb24.ir",
-                                "domain:rbc.ir",
-                                "domain:refah-bank.ir",
-                                "domain:postbank.ir",
-                                "domain:sina-bank.ir",
-                                "domain:shahr-bank.ir",
-                                "domain:sarmayeh.com",
-                                "domain:karafarinbank.ir",
-                                "domain:middleeastbank.ir",
-                                "domain:tourismbank.ir",
-                                "domain:ttbank.ir",
-                                "domain:maskan-bank.ir",
-                                "domain:edbi.ir",
-                                "domain:bki.ir",
-                                "domain:sanatmadan.ir",
-                                "domain:ansarbank.ir",
-                                "domain:ba24.ir",
-                                "domain:asanpardakht.ir",
-                                "domain:sadadpsp.ir",
-                                "domain:sep.ir",
-                                "domain:bpp.ir",
-                                "domain:pep.co.ir",
-                                "domain:sepehrpay.com",
-                                "domain:irankish.com",
-                                "domain:pna.co.ir",
-                                "domain:sayancard.ir",
-                                "domain:fcp.ir",
-                                "domain:dotic.ir"
-                            )
-                            standardDomains.forEach { dom ->
-                                val cleanDom = dom.removePrefix("domain:")
-                                if (!exemptDomains.contains(cleanDom)) {
-                                    add(dom)
-                                }
-                            }
-                        }
-                        add("domain", domainArray)
-                    }
-                    add(iranDomainRule)
-                }
 
                 // All other TCP/UDP traffic -> Proxy
                 val proxyRule = JsonObject().apply {
