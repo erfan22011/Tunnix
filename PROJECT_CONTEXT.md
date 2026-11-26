@@ -7,8 +7,7 @@
 ## 1. Release History & Baselines
 
 * **App Name:** Tunnix (`com.tunnix.app`)
-* **Current Active Release:** `1.0.5` (`versionCode = 6`, `versionName = "1.0.5"`)
-* **Pending Release:** `1.0.6` (`versionCode = 7`, `versionName = "1.0.6"`)
+* **Current Active Release:** `1.0.6` (`versionCode = 7`, `versionName = "1.0.6"`)
 * **Previous Stable Releases:**
   * `1.0.5` (`versionCode = 6`, `versionName = "1.0.5"`, commit: `ed11f05`)
   * `1.0.4` (`versionCode = 5`, `versionName = "1.0.4"`, commit: `57234ff`)
@@ -16,7 +15,7 @@
   * `1.0.2` (`versionCode = 3`, `versionName = "1.0.2"`, commit: `39c3f9e`)
   * `1.0.1` (`versionCode = 2`, `versionName = "1.0.1"`, commit: `f670292`)
 * **Permanent Baseline Tag:** `stable-baseline-v1.0.1`
-* **Release Tags:** `v1.0.1`, `v1.0.2`, `v1.0.3`, `v1.0.4`, `v1.0.5`
+* **Release Tags:** `v1.0.1`, `v1.0.2`, `v1.0.3`, `v1.0.4`, `v1.0.5`, `v1.0.6`
 * **Instant Rollback Command to v1.0.1:**
   ```bash
   git checkout main && git reset --hard stable-baseline-v1.0.1 && git clean -fd
@@ -24,7 +23,7 @@
 
 ---
 
-## 1.0 What was Fixed & Added in Version 1.0.6 (Pending User Approval)
+## 1.0 What was Fixed & Added in Version 1.0.6
 
 1. **Domestic Traffic Direct Routing (Bypass Iranian Websites & Services):**
    * Added `bypassIran: Boolean = true` setting in `AppSettingsDataStore`.
