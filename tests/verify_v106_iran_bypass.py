@@ -76,12 +76,20 @@ assert 'bypassIran = uiState.bypassIran' in act_code, "MainActivity must pass by
 assert 'onBypassIranChange = { viewModel.changeBypassIran(it) }' in act_code, "MainActivity must pass onBypassIranChange to TunnixNavigation!"
 print("✅ Test 5 (SettingsScreen UI Toggle & Activity Plumbing): PASSED")
 
-# 6. Check app/build.gradle.kts version bump to 1.0.6 (code 7)
+# 6. Check Initial Screen Flash & Server Selection Stability Fixes
+assert 'val isInitialized: Boolean = false' in vm_code, "UiState must contain isInitialized flag!"
+assert 'if (uiState.isInitialized)' in act_code, "MainActivity must guard TunnixNavigation with uiState.isInitialized!"
+assert 'hasDoneInitialRefresh' in vm_code, "MainViewModel must guard background refresh with hasDoneInitialRefresh!"
+assert 'fetchJob?.cancel()' in vm_code, "MainViewModel must cancel in-flight fetch jobs to prevent race conditions!"
+assert 'VpnTunnelManager.startVpn(getApplication(), preparedServer, bypassIran = _uiState.value.bypassIran)' in vm_code, "selectServer must dynamically reconnect if VPN is active!"
+print("✅ Test 6 (Initial Screen Flash & Server Selection Stability Fixes): PASSED")
+
+# 7. Check app/build.gradle.kts version bump to 1.0.6 (code 7)
 with open(r"f:\antigravity\app2\app\build.gradle.kts", "r", encoding="utf-8") as f:
     build_code = f.read()
 
 assert 'versionCode = 7' in build_code, "versionCode must be 7 for v1.0.6!"
 assert 'versionName = "1.0.6"' in build_code, "versionName must be 1.0.6!"
-print("✅ Test 6 (Gradle Version Bump to 1.0.6): PASSED")
+print("✅ Test 7 (Gradle Version Bump to 1.0.6): PASSED")
 
 print("\n🎉 ALL V1.0.6 VERIFICATION CHECKS PASSED WITH 100% SUCCESS!")

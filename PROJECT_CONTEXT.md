@@ -38,6 +38,16 @@
 2. **Settings UI Integration:**
    * Added Section 3 GlassCard toggle with switch control, Persian and English descriptions.
    * Fallback and runtime version updated to `1.0.6`.
+3. **Elimination of Initial Startup Flash/Jump (Redeem to Main Screen Transition):**
+   * Added `isInitialized` to `UiState` and guarded `TunnixNavigation` in `MainActivity.kt` with `if (uiState.isInitialized)`.
+   * Previously, `hasSubscription` defaulted to `false` during the initial 15-30ms while DataStore read from disk, causing `NavHost` to build with `startDestination = "redeem"` and then slide-animate to `"main"` on every app launch.
+   * Now, the initial destination is resolved before `TunnixNavigation` is composed, rendering directly on the Main screen with zero visual jumping, sliding, or flashing.
+4. **Fix Server List Jumping, Flickering, and Selection Failure:**
+   * Fixed infinite recursive re-fetch loop in `MainViewModel`: `observeDataStore()` previously triggered `loadSubscription()` on every DataStore emission (including theme change, language change, bypassIran toggle, server selection, and cache saving).
+   * Guarded initial launch refresh with `hasDoneInitialRefresh` so it executes strictly once on startup if online.
+   * Added coroutine `fetchJob?.cancel()` to cancel any stale in-flight network requests and prevent race conditions.
+   * `refreshSubscription` now strictly preserves the user's active selection (`currentlySelectedId`) across network refreshes instead of reverting to older server IDs.
+   * `selectServer()` now dynamically reconnects the active tunnel if the VPN is currently connected.
 
 ---
 

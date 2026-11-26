@@ -22,7 +22,9 @@ import com.tunnix.modifier.XhttpConfigModifier
 import com.tunnix.parser.SubscriptionFetcher
 import com.tunnix.settings.AppSettingsDataStore
 import com.tunnix.traffic.TrafficMonitorRepository
+import com.tunnix.traffic.TrafficMonitorRepository
 import com.tunnix.vpn.VpnTunnelManager
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -39,7 +41,8 @@ data class UiState(
     val isLoading: Boolean = false,
     val errorMessage: String? = null,
     val hasSubscription: Boolean = false,
-    val bypassIran: Boolean = true
+    val bypassIran: Boolean = true,
+    val isInitialized: Boolean = false
 )
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
@@ -49,6 +52,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private var rawServers: List<ServerConfig> = emptyList()
     private var currentSubscriptionUrl: String = ""
     private var networkCallback: ConnectivityManager.NetworkCallback? = null
+    private var fetchJob: Job? = null
+    private var hasDoneInitialRefresh: Boolean = false
 
     private val _uiState = MutableStateFlow(UiState())
     val uiState: StateFlow<UiState> = _uiState.asStateFlow()
@@ -72,10 +77,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         networkCallback = object : ConnectivityManager.NetworkCallback() {
             override fun onAvailable(network: Network) {
                 // When internet becomes available (e.g. user turns on Wi-Fi or mobile data),
-                // automatically refresh/fetch servers if subscription exists.
+                // automatically refresh/fetch servers in background if subscription exists.
                 val subUrl = currentSubscriptionUrl
                 if (subUrl.isNotBlank()) {
-                    loadSubscription(subUrl, _uiState.value.selectedServer?.id)
+                    refreshSubscription(subUrl, _uiState.value.selectedServer?.id, isSilent = _uiState.value.servers.isNotEmpty())
                 }
             }
         }
@@ -109,6 +114,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     _uiState.value.servers
                 }
 
+                // If user has already made a selection in memory, respect it!
                 val currentSelectedId = _uiState.value.selectedServer?.id ?: prefs.selectedServerId
                 val updatedSelected = updatedServers.firstOrNull { it.id == currentSelectedId }
                     ?: updatedServers.firstOrNull()
@@ -120,19 +126,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     servers = updatedServers,
                     selectedServer = updatedSelected,
                     hasSubscription = prefs.subscriptionUrl.isNotBlank(),
-                    bypassIran = prefs.bypassIran
+                    bypassIran = prefs.bypassIran,
+                    isInitialized = true
                 )
 
-                // 2. Fetch or refresh from network:
-                // If we have a subscription URL:
-                // - If servers list is still empty, attempt to fetch.
-                // - If internet is online and we have cached servers, silently update in background.
-                if (prefs.subscriptionUrl.isNotBlank()) {
-                    if (updatedServers.isEmpty()) {
-                        loadSubscription(prefs.subscriptionUrl, prefs.selectedServerId)
-                    } else if (isOnline()) {
-                        // Background refresh if online, without clearing cached list
-                        loadSubscription(prefs.subscriptionUrl, prefs.selectedServerId)
+                // 2. Fetch or refresh from network ONLY ONCE on launch (prevents infinite loop & selection overriding)
+                if (prefs.subscriptionUrl.isNotBlank() && !hasDoneInitialRefresh) {
+                    hasDoneInitialRefresh = true
+                    if (isOnline()) {
+                        refreshSubscription(prefs.subscriptionUrl, prefs.selectedServerId, isSilent = updatedServers.isNotEmpty())
                     }
                 }
             }
@@ -165,10 +167,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun loadSubscription(urlOrToken: String, preferredServerId: String? = null) {
-        viewModelScope.launch {
+        refreshSubscription(urlOrToken, preferredServerId, isSilent = false)
+    }
+
+    private fun refreshSubscription(urlOrToken: String, preferredServerId: String? = null, isSilent: Boolean = false) {
+        fetchJob?.cancel()
+        fetchJob = viewModelScope.launch {
             val hasExistingServers = _uiState.value.servers.isNotEmpty()
-            // Only show full-screen loading spinner if there are no existing servers to show
-            if (!hasExistingServers) {
+            // Only show full-screen loading spinner if there are no existing servers to show and not silent
+            if (!hasExistingServers && !isSilent) {
                 _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
             }
 
@@ -183,11 +190,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     val currentConfig = _uiState.value.downloadSettings
                     val modifiedServers = XhttpConfigModifier.modifyAll(fetchedServers, currentConfig)
 
-                    val selected = if (!preferredServerId.isNullOrBlank()) {
-                        modifiedServers.firstOrNull { it.id == preferredServerId } ?: modifiedServers.firstOrNull()
-                    } else {
-                        modifiedServers.firstOrNull { it.id == _uiState.value.selectedServer?.id } ?: modifiedServers.firstOrNull()
-                    }
+                    // PRESERVE CURRENT USER SELECTION:
+                    // If the user selected a server, keep that selection active!
+                    val currentlySelectedId = _uiState.value.selectedServer?.id ?: preferredServerId
+                    val selected = modifiedServers.firstOrNull { it.id == currentlySelectedId }
+                        ?: modifiedServers.firstOrNull()
 
                     _uiState.value = _uiState.value.copy(
                         servers = modifiedServers,
@@ -201,7 +208,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 } else {
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
-                        errorMessage = if (!hasExistingServers) "سابسکریپشن خالی است یا سروری یافت نشد" else null
+                        errorMessage = if (!hasExistingServers && !isSilent) "سابسکریپشن خالی است یا سروری یافت نشد" else null
                     )
                 }
             } else {
@@ -209,7 +216,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 // RESILIENT: Never wipe out existing servers on network failure!
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
-                    errorMessage = if (!hasExistingServers) errorMsg else null
+                    errorMessage = if (!hasExistingServers && !isSilent) errorMsg else null
                 )
             }
         }
@@ -219,6 +226,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         _uiState.value = _uiState.value.copy(selectedServer = server)
         viewModelScope.launch {
             dataStore.saveSelectedServerId(server.id)
+            if (_uiState.value.vpnState is VpnState.Connected) {
+                val currentConfig = _uiState.value.downloadSettings
+                val preparedServer = if (XhttpConfigModifier.isEligible(server, currentConfig)) {
+                    XhttpConfigModifier.modify(server, currentConfig)
+                } else {
+                    server
+                }
+                VpnTunnelManager.startVpn(getApplication(), preparedServer, bypassIran = _uiState.value.bypassIran)
+            }
         }
     }
 
@@ -307,6 +323,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun clearSubscription() {
+        fetchJob?.cancel()
+        hasDoneInitialRefresh = false
         viewModelScope.launch {
             dataStore.clearSubscription()
             VpnTunnelManager.stopVpn(getApplication())
