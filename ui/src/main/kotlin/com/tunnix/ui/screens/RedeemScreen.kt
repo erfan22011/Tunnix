@@ -33,16 +33,20 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Clear
 import androidx.compose.material.icons.rounded.ContentPaste
 import androidx.compose.material.icons.rounded.DarkMode
 import androidx.compose.material.icons.rounded.ErrorOutline
 import androidx.compose.material.icons.rounded.LightMode
+import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.VpnKey
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -53,6 +57,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -94,18 +99,37 @@ fun RedeemScreen(
     var inputText by remember { mutableStateOf("") }
     var localError by remember { mutableStateOf<String?>(null) }
     var isInputFocused by remember { mutableStateOf(false) }
+    var clipboardSuggestion by remember { mutableStateOf<String?>(null) }
 
     val clipboardManager = LocalClipboardManager.current
     val focusManager = LocalFocusManager.current
+    val scrollState = rememberScrollState()
 
     val isFa = currentLanguage == AppLanguage.PERSIAN
     val isDark = currentTheme == ThemeMode.DARK
 
+    // Check clipboard on launch for potential sub link or redeem code
+    LaunchedEffect(Unit) {
+        try {
+            val clip = clipboardManager.getText()?.text?.trim()
+            if (!clip.isNullOrBlank() && (clip.startsWith("http://", ignoreCase = true) ||
+                        clip.startsWith("https://", ignoreCase = true) ||
+                        clip.startsWith("vless://", ignoreCase = true) ||
+                        clip.startsWith("vmess://", ignoreCase = true) ||
+                        clip.startsWith("ss://", ignoreCase = true) ||
+                        clip.contains("tootcloud", ignoreCase = true) ||
+                        clip.contains("pelqexa", ignoreCase = true) ||
+                        (clip.length in 12..36 && !clip.contains(" ")))) {
+                clipboardSuggestion = clip
+            }
+        } catch (_: Exception) {}
+    }
+
     // Ambient Breathing Animation for Logo Glow
     val infiniteTransition = rememberInfiniteTransition(label = "redeem_ambient")
     val pulseScale by infiniteTransition.animateFloat(
-        initialValue = 0.96f,
-        targetValue = 1.06f,
+        initialValue = 0.95f,
+        targetValue = 1.07f,
         animationSpec = infiniteRepeatable(
             animation = tween(2800, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Reverse
@@ -114,7 +138,7 @@ fun RedeemScreen(
     )
     val glowAlpha by infiniteTransition.animateFloat(
         initialValue = 0.20f,
-        targetValue = 0.44f,
+        targetValue = 0.46f,
         animationSpec = infiniteRepeatable(
             animation = tween(2800, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Reverse
@@ -126,7 +150,7 @@ fun RedeemScreen(
     val buttonInteractionSource = remember { MutableInteractionSource() }
     val isButtonPressed by buttonInteractionSource.collectIsPressedAsState()
     val buttonScale by animateFloatAsState(
-        targetValue = if (isButtonPressed) 0.95f else 1f,
+        targetValue = if (isButtonPressed) 0.94f else 1f,
         animationSpec = spring(
             dampingRatio = Spring.DampingRatioMediumBouncy,
             stiffness = Spring.StiffnessLow
@@ -134,17 +158,23 @@ fun RedeemScreen(
         label = "button_scale"
     )
 
-    // Smooth Ambient Border Width and Glow on Focus
+    // Smooth Focus Progress (0f to 1f) for seamless interpolation
+    val focusProgress by animateFloatAsState(
+        targetValue = if (isInputFocused) 1f else 0f,
+        animationSpec = tween(280, easing = FastOutSlowInEasing),
+        label = "focus_progress"
+    )
+
+    // Animated Border Width and Color
     val animatedBorderWidth by animateDpAsState(
-        targetValue = if (isInputFocused) 1.5.dp else 1.dp,
-        animationSpec = tween(220, easing = FastOutSlowInEasing),
+        targetValue = if (isInputFocused) 1.8.dp else 1.dp,
+        animationSpec = tween(240, easing = FastOutSlowInEasing),
         label = "border_width"
     )
 
-    // Animated Border Color for Input Card
     val animatedBorderColor by animateColorAsState(
-        targetValue = if (isInputFocused) EmeraldGreen else TunnixStyle.glass.glassBorder,
-        animationSpec = tween(250, easing = FastOutSlowInEasing),
+        targetValue = if (isInputFocused) EmeraldGreen else TunnixStyle.glass.glassBorder.copy(alpha = 0.45f),
+        animationSpec = tween(280, easing = FastOutSlowInEasing),
         label = "border_color"
     )
 
@@ -153,14 +183,14 @@ fun RedeemScreen(
         Brush.verticalGradient(
             colors = listOf(
                 Color(0xFF141D2B),
-                Color(0xFF0F1722)
+                Color(0xFF0F1724)
             )
         )
     } else {
         Brush.verticalGradient(
             colors = listOf(
                 Color(0xFFFFFFFF),
-                Color(0xFFF8FAFC)
+                Color(0xFFF6F8FB)
             )
         )
     }
@@ -176,8 +206,8 @@ fun RedeemScreen(
     } else {
         Brush.linearGradient(
             listOf(
-                TunnixStyle.glass.glassBorder.copy(alpha = 0.8f),
-                TunnixStyle.glass.glassBorder.copy(alpha = 0.35f)
+                TunnixStyle.glass.glassBorder.copy(alpha = 0.65f),
+                TunnixStyle.glass.glassBorder.copy(alpha = 0.25f)
             )
         )
     }
@@ -187,340 +217,472 @@ fun RedeemScreen(
             .fillMaxSize()
             .background(TunnixStyle.glass.background)
             .imePadding()
-            .padding(horizontal = 24.dp, vertical = 20.dp)
     ) {
-        // Top Bar: Theme Switcher & Language Switcher Pill
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .align(Alignment.TopCenter),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            // Theme toggle button with soft spring feedback
-            val themeInteractionSource = remember { MutableInteractionSource() }
-            val isThemePressed by themeInteractionSource.collectIsPressedAsState()
-            val themeScale by animateFloatAsState(if (isThemePressed) 0.92f else 1f, label = "theme_scale")
-
-            IconButton(
-                onClick = onThemeToggle,
-                modifier = Modifier
-                    .graphicsLayer { scaleX = themeScale; scaleY = themeScale }
-                    .clip(CircleShape)
-                    .background(TunnixStyle.glass.cardGlass)
-                    .border(1.dp, TunnixStyle.glass.glassBorder, CircleShape),
-                interactionSource = themeInteractionSource
-            ) {
-                Icon(
-                    imageVector = if (TunnixStyle.glass.isDark) Icons.Rounded.LightMode else Icons.Rounded.DarkMode,
-                    contentDescription = "Toggle Theme",
-                    tint = EmeraldGreen
-                )
-            }
-
-            // Language Pill Button ("فا" or "EN")
-            val langInteractionSource = remember { MutableInteractionSource() }
-            val isLangPressed by langInteractionSource.collectIsPressedAsState()
-            val langScale by animateFloatAsState(if (isLangPressed) 0.92f else 1f, label = "lang_scale")
-
-            Box(
-                modifier = Modifier
-                    .graphicsLayer { scaleX = langScale; scaleY = langScale }
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(EmeraldGreen)
-                    .clickable(
-                        interactionSource = langInteractionSource,
-                        indication = null
-                    ) {
-                        val nextLang = if (isFa) AppLanguage.ENGLISH else AppLanguage.PERSIAN
-                        onLanguageChange(nextLang)
-                    }
-                    .padding(horizontal = 18.dp, vertical = 8.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = if (isFa) "فا" else "EN",
-                    color = Color.Black,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 15.sp
-                )
-            }
-        }
-
-        // Center Content with soft ambient aesthetics
         Column(
             modifier = Modifier
-                .fillMaxWidth()
-                .align(Alignment.Center),
-            horizontalAlignment = Alignment.CenterHorizontally
+                .fillMaxSize()
+                .verticalScroll(scrollState)
+                .padding(horizontal = 24.dp, vertical = 20.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.SpaceBetween
         ) {
-            // Hexagonal Logo with Soft Radial Breathing Glow
-            Box(
-                contentAlignment = Alignment.Center,
-                modifier = Modifier.size(124.dp)
+            // Top Bar: Theme Switcher & Language Switcher Pill
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
+                // Theme toggle button with soft spring feedback
+                val themeInteractionSource = remember { MutableInteractionSource() }
+                val isThemePressed by themeInteractionSource.collectIsPressedAsState()
+                val themeScale by animateFloatAsState(
+                    targetValue = if (isThemePressed) 0.90f else 1f,
+                    animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
+                    label = "theme_scale"
+                )
+
+                IconButton(
+                    onClick = onThemeToggle,
+                    modifier = Modifier
+                        .graphicsLayer { scaleX = themeScale; scaleY = themeScale }
+                        .clip(CircleShape)
+                        .background(TunnixStyle.glass.cardGlass)
+                        .border(1.dp, TunnixStyle.glass.glassBorder, CircleShape),
+                    interactionSource = themeInteractionSource
+                ) {
+                    Icon(
+                        imageVector = if (TunnixStyle.glass.isDark) Icons.Rounded.LightMode else Icons.Rounded.DarkMode,
+                        contentDescription = "Toggle Theme",
+                        tint = EmeraldGreen
+                    )
+                }
+
+                // Language Pill Button ("فا" or "EN")
+                val langInteractionSource = remember { MutableInteractionSource() }
+                val isLangPressed by langInteractionSource.collectIsPressedAsState()
+                val langScale by animateFloatAsState(
+                    targetValue = if (isLangPressed) 0.90f else 1f,
+                    animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
+                    label = "lang_scale"
+                )
+
                 Box(
                     modifier = Modifier
-                        .size(120.dp)
-                        .scale(pulseScale)
-                        .clip(CircleShape)
-                        .background(
-                            Brush.radialGradient(
-                                colors = listOf(
-                                    EmeraldGreen.copy(alpha = glowAlpha),
-                                    Color.Transparent
-                                )
-                            )
-                        )
-                )
-                TunnixLogo(size = 96.dp)
+                        .graphicsLayer { scaleX = langScale; scaleY = langScale }
+                        .clip(RoundedCornerShape(18.dp))
+                        .background(EmeraldGreen)
+                        .clickable(
+                            interactionSource = langInteractionSource,
+                            indication = null
+                        ) {
+                            val nextLang = if (isFa) AppLanguage.ENGLISH else AppLanguage.PERSIAN
+                            onLanguageChange(nextLang)
+                        }
+                        .padding(horizontal = 20.dp, vertical = 9.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = if (isFa) "فا" else "EN",
+                        color = Color.Black,
+                        fontWeight = FontWeight.ExtraBold,
+                        fontSize = 15.sp
+                    )
+                }
             }
 
-            Spacer(modifier = Modifier.height(18.dp))
+            Spacer(modifier = Modifier.height(28.dp))
 
-            // App Title
-            Text(
-                text = "Tunnix",
-                color = TunnixStyle.glass.textPrimary,
-                fontSize = 28.sp,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = 1.sp
-            )
-
-            // Slogan
-            Text(
-                text = if (isFa) "آزادی، فقط با یک لمس" else "Freedom, One Tap Away",
-                color = TunnixStyle.glass.textSecondary,
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Normal,
-                textAlign = TextAlign.Center
-            )
-
-            Spacer(modifier = Modifier.height(40.dp))
-
-            // Soft Glassmorphic Input Container
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .shadow(
-                        elevation = if (isInputFocused) 12.dp else 4.dp,
-                        shape = RoundedCornerShape(24.dp),
-                        spotColor = if (isInputFocused) EmeraldGreen.copy(alpha = 0.35f) else Color.Black.copy(alpha = 0.15f),
-                        ambientColor = if (isInputFocused) EmeraldGreen.copy(alpha = 0.15f) else Color.Transparent
-                    )
-                    .clip(RoundedCornerShape(24.dp))
-                    .background(cardBackground)
-                    .border(
-                        width = animatedBorderWidth,
-                        brush = cardBorderBrush,
-                        shape = RoundedCornerShape(24.dp)
-                    )
+            // Center Content: Logo, Title, Slogan, and Soft Input Card
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                OutlinedTextField(
-                    value = inputText,
-                    onValueChange = {
-                        inputText = it
-                        localError = null
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .onFocusChanged { isInputFocused = it.isFocused },
-                    placeholder = {
-                        Text(
-                            text = if (isFa) "کد یا لینک سابسکریپشن" else "Redeem code or sub link",
-                            color = TunnixStyle.glass.textMuted,
-                            fontSize = 15.sp
-                        )
-                    },
-                    leadingIcon = {
+                // Hexagonal Logo with Soft Multi-layer Breathing Glow
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier.size(136.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(130.dp)
+                            .scale(pulseScale)
+                            .clip(CircleShape)
+                            .background(
+                                Brush.radialGradient(
+                                    colors = listOf(
+                                        EmeraldGreen.copy(alpha = glowAlpha),
+                                        EmeraldGreen.copy(alpha = glowAlpha * 0.35f),
+                                        Color.Transparent
+                                    )
+                                )
+                            )
+                    )
+                    TunnixLogo(size = 98.dp)
+                }
+
+                Spacer(modifier = Modifier.height(18.dp))
+
+                // App Title
+                Text(
+                    text = "Tunnix",
+                    color = TunnixStyle.glass.textPrimary,
+                    fontSize = 30.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 1.2.sp
+                )
+
+                Spacer(modifier = Modifier.height(4.dp))
+
+                // Slogan
+                Text(
+                    text = if (isFa) "آزادی، فقط با یک لمس" else "Freedom, One Tap Away",
+                    color = TunnixStyle.glass.textSecondary,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Normal,
+                    textAlign = TextAlign.Center
+                )
+
+                Spacer(modifier = Modifier.height(34.dp))
+
+                // Smart Clipboard Helper Pill
+                AnimatedVisibility(
+                    visible = !clipboardSuggestion.isNullOrBlank() && inputText.isBlank(),
+                    enter = expandVertically(tween(240)) + fadeIn(tween(240)),
+                    exit = shrinkVertically(tween(180)) + fadeOut(tween(180))
+                ) {
+                    clipboardSuggestion?.let { clipText ->
                         Box(
                             modifier = Modifier
-                                .padding(start = 12.dp, end = 4.dp)
-                                .size(36.dp)
-                                .clip(CircleShape)
-                                .background(
-                                    if (isInputFocused) EmeraldGreen.copy(alpha = 0.18f)
-                                    else TunnixStyle.glass.glassBorder.copy(alpha = 0.2f)
-                                ),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Rounded.VpnKey,
-                                contentDescription = null,
-                                tint = if (isInputFocused) EmeraldGreen else TunnixStyle.glass.textSecondary,
-                                modifier = Modifier.size(18.dp)
-                            )
-                        }
-                    },
-                    trailingIcon = {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(end = 8.dp)
-                        ) {
-                            if (inputText.isNotEmpty()) {
-                                IconButton(
-                                    onClick = {
-                                        inputText = ""
-                                        localError = null
-                                    }
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Rounded.Clear,
-                                        contentDescription = "Clear",
-                                        tint = TunnixStyle.glass.textSecondary
-                                    )
+                                .padding(bottom = 14.dp)
+                                .clip(RoundedCornerShape(18.dp))
+                                .background(EmeraldGreen.copy(alpha = 0.12f))
+                                .border(1.dp, EmeraldGreen.copy(alpha = 0.35f), RoundedCornerShape(18.dp))
+                                .clickable {
+                                    inputText = clipText
+                                    clipboardSuggestion = null
+                                    localError = null
                                 }
-                            } else {
-                                Box(
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(12.dp))
-                                        .background(EmeraldGreen.copy(alpha = 0.14f))
-                                        .clickable {
-                                            clipboardManager.getText()?.text?.let { clipText ->
-                                                inputText = clipText.trim()
-                                            }
-                                        }
-                                        .padding(horizontal = 10.dp, vertical = 6.dp),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                .padding(horizontal = 16.dp, vertical = 9.dp)
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.ContentPaste,
+                                    contentDescription = null,
+                                    tint = EmeraldGreen,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = if (isFa) "📋 لینک در حافظه شناسایی شد (برای درج لمس کنید)" else "📋 Link found in clipboard (tap to paste)",
+                                    color = EmeraldGreen,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // Ultra-soft Glassmorphic Input Container
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .graphicsLayer {
+                            val targetScale = 1f + (0.012f * focusProgress)
+                            scaleX = targetScale
+                            scaleY = targetScale
+                        }
+                        .shadow(
+                            elevation = if (isInputFocused) 14.dp else 4.dp,
+                            shape = RoundedCornerShape(26.dp),
+                            spotColor = if (isInputFocused) EmeraldGreen.copy(alpha = 0.40f) else Color.Black.copy(alpha = 0.12f),
+                            ambientColor = if (isInputFocused) EmeraldGreen.copy(alpha = 0.18f) else Color.Transparent
+                        )
+                        .clip(RoundedCornerShape(26.dp))
+                        .background(cardBackground)
+                        .border(
+                            width = animatedBorderWidth,
+                            brush = cardBorderBrush,
+                            shape = RoundedCornerShape(26.dp)
+                        )
+                ) {
+                    OutlinedTextField(
+                        value = inputText,
+                        onValueChange = {
+                            inputText = it
+                            localError = null
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .onFocusChanged { isInputFocused = it.isFocused },
+                        placeholder = {
+                            Text(
+                                text = if (isFa) "کد یا لینک سابسکریپشن خود را وارد کنید" else "Enter redeem code or sub link",
+                                color = TunnixStyle.glass.textMuted,
+                                fontSize = 14.sp
+                            )
+                        },
+                        leadingIcon = {
+                            Box(
+                                modifier = Modifier
+                                    .padding(start = 14.dp, end = 6.dp)
+                                    .size(38.dp)
+                                    .clip(CircleShape)
+                                    .background(
+                                        if (isInputFocused) EmeraldGreen.copy(alpha = 0.20f)
+                                        else TunnixStyle.glass.glassBorder.copy(alpha = 0.25f)
+                                    ),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.VpnKey,
+                                    contentDescription = null,
+                                    tint = if (isInputFocused) EmeraldGreen else TunnixStyle.glass.textSecondary,
+                                    modifier = Modifier.size(19.dp)
+                                )
+                            }
+                        },
+                        trailingIcon = {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.padding(end = 10.dp)
+                            ) {
+                                if (inputText.isNotEmpty()) {
+                                    val clearInteractionSource = remember { MutableInteractionSource() }
+                                    val isClearPressed by clearInteractionSource.collectIsPressedAsState()
+                                    val clearScale by animateFloatAsState(
+                                        targetValue = if (isClearPressed) 0.88f else 1f,
+                                        label = "clear_scale"
+                                    )
+
+                                    IconButton(
+                                        onClick = {
+                                            inputText = ""
+                                            localError = null
+                                        },
+                                        modifier = Modifier.graphicsLayer {
+                                            scaleX = clearScale
+                                            scaleY = clearScale
+                                        },
+                                        interactionSource = clearInteractionSource
+                                    ) {
                                         Icon(
-                                            imageVector = Icons.Rounded.ContentPaste,
-                                            contentDescription = "Paste",
-                                            tint = EmeraldGreen,
-                                            modifier = Modifier.size(16.dp)
+                                            imageVector = Icons.Rounded.Clear,
+                                            contentDescription = "Clear",
+                                            tint = TunnixStyle.glass.textSecondary
                                         )
-                                        Spacer(modifier = Modifier.width(4.dp))
-                                        Text(
-                                            text = if (isFa) "جای‌گذاری" else "Paste",
-                                            color = EmeraldGreen,
-                                            fontSize = 12.sp,
-                                            fontWeight = FontWeight.SemiBold
-                                        )
+                                    }
+                                } else {
+                                    val pasteInteractionSource = remember { MutableInteractionSource() }
+                                    val isPastePressed by pasteInteractionSource.collectIsPressedAsState()
+                                    val pasteScale by animateFloatAsState(
+                                        targetValue = if (isPastePressed) 0.90f else 1f,
+                                        label = "paste_scale"
+                                    )
+
+                                    Box(
+                                        modifier = Modifier
+                                            .graphicsLayer {
+                                                scaleX = pasteScale
+                                                scaleY = pasteScale
+                                            }
+                                            .clip(RoundedCornerShape(14.dp))
+                                            .background(EmeraldGreen.copy(alpha = 0.16f))
+                                            .border(1.dp, EmeraldGreen.copy(alpha = 0.35f), RoundedCornerShape(14.dp))
+                                            .clickable(
+                                                interactionSource = pasteInteractionSource,
+                                                indication = null
+                                            ) {
+                                                clipboardManager.getText()?.text?.let { clipText ->
+                                                    inputText = clipText.trim()
+                                                    clipboardSuggestion = null
+                                                    localError = null
+                                                }
+                                            }
+                                            .padding(horizontal = 12.dp, vertical = 7.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Icon(
+                                                imageVector = Icons.Rounded.ContentPaste,
+                                                contentDescription = "Paste",
+                                                tint = EmeraldGreen,
+                                                modifier = Modifier.size(16.dp)
+                                            )
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Text(
+                                                text = if (isFa) "جای‌گذاری" else "Paste",
+                                                color = EmeraldGreen,
+                                                fontSize = 13.sp,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                        }
                                     }
                                 }
                             }
-                        }
-                    },
-                    singleLine = true,
-                    shape = RoundedCornerShape(24.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = Color.Transparent,
-                        unfocusedBorderColor = Color.Transparent,
-                        focusedContainerColor = Color.Transparent,
-                        unfocusedContainerColor = Color.Transparent,
-                        focusedTextColor = TunnixStyle.glass.textPrimary,
-                        unfocusedTextColor = TunnixStyle.glass.textPrimary,
-                        cursorColor = EmeraldGreen
-                    ),
-                    keyboardOptions = KeyboardOptions(
-                        keyboardType = KeyboardType.Uri,
-                        imeAction = ImeAction.Done
-                    ),
-                    keyboardActions = KeyboardActions(
-                        onDone = {
-                            focusManager.clearFocus()
-                            validateAndSubmit(inputText, isFa, { localError = it }, onSubmitSubscription)
-                        }
+                        },
+                        singleLine = true,
+                        shape = RoundedCornerShape(26.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = Color.Transparent,
+                            unfocusedBorderColor = Color.Transparent,
+                            focusedContainerColor = Color.Transparent,
+                            unfocusedContainerColor = Color.Transparent,
+                            focusedTextColor = TunnixStyle.glass.textPrimary,
+                            unfocusedTextColor = TunnixStyle.glass.textPrimary,
+                            cursorColor = EmeraldGreen
+                        ),
+                        keyboardOptions = KeyboardOptions(
+                            keyboardType = KeyboardType.Uri,
+                            imeAction = ImeAction.Done
+                        ),
+                        keyboardActions = KeyboardActions(
+                            onDone = {
+                                focusManager.clearFocus()
+                                validateAndSubmit(inputText, isFa, { localError = it }, onSubmitSubscription)
+                            }
+                        )
                     )
-                )
-            }
-
-            // Soft Pill Error Display
-            val activeError = (localError ?: errorMessage)?.let { rawErr ->
-                var sanitized = rawErr.replace(Regex("https?://[^\\s)\\]]+"), "")
-                    .replace(Regex("\\b\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}(?::\\d+)?\\b"), "")
-                    .replace(": null", "")
-                    .replace("null", "")
-                    .replace("()", "")
-                    .trim()
-                if (sanitized.isBlank()) {
-                    if (isFa) "خطا در برقراری ارتباط با سرور. لطفاً اتصال اینترنت خود را بررسی نمایید."
-                    else "Unable to connect to server. Please check your internet connection."
-                } else {
-                    sanitized
                 }
-            }
-            AnimatedVisibility(
-                visible = !activeError.isNullOrBlank(),
-                enter = expandVertically(tween(220)) + fadeIn(tween(220)),
-                exit = shrinkVertically(tween(180)) + fadeOut(tween(180))
-            ) {
-                if (!activeError.isNullOrBlank()) {
-                    Box(
-                        modifier = Modifier
-                            .padding(top = 14.dp)
-                            .clip(RoundedCornerShape(16.dp))
-                            .background(Color(0xFFFF5252).copy(alpha = 0.10f))
-                            .border(1.dp, Color(0xFFFF5252).copy(alpha = 0.28f), RoundedCornerShape(16.dp))
-                            .padding(horizontal = 16.dp, vertical = 10.dp)
-                    ) {
+
+                // Soft Pill Error Display
+                val activeError = (localError ?: errorMessage)?.let { rawErr ->
+                    var sanitized = rawErr.replace(Regex("https?://[^\\s)\\]]+"), "")
+                        .replace(Regex("\\b\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}(?::\\d+)?\\b"), "")
+                        .replace(": null", "")
+                        .replace("null", "")
+                        .replace("()", "")
+                        .trim()
+                    if (sanitized.isBlank()) {
+                        if (isFa) "خطا در برقراری ارتباط با سرور. لطفاً اتصال اینترنت خود را بررسی نمایید."
+                        else "Unable to connect to server. Please check your internet connection."
+                    } else {
+                        sanitized
+                    }
+                }
+
+                AnimatedVisibility(
+                    visible = !activeError.isNullOrBlank(),
+                    enter = expandVertically(tween(220)) + fadeIn(tween(220)),
+                    exit = shrinkVertically(tween(180)) + fadeOut(tween(180))
+                ) {
+                    if (!activeError.isNullOrBlank()) {
+                        Box(
+                            modifier = Modifier
+                                .padding(top = 16.dp)
+                                .clip(RoundedCornerShape(18.dp))
+                                .background(Color(0xFFFF5252).copy(alpha = 0.12f))
+                                .border(1.dp, Color(0xFFFF5252).copy(alpha = 0.30f), RoundedCornerShape(18.dp))
+                                .padding(horizontal = 18.dp, vertical = 11.dp)
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.ErrorOutline,
+                                    contentDescription = null,
+                                    tint = Color(0xFFFF5252),
+                                    modifier = Modifier.size(19.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = activeError,
+                                    color = Color(0xFFFF5252),
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    textAlign = TextAlign.Center
+                                )
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(26.dp))
+
+                // Soft Liquid Submit Button with Spring Touch Feedback
+                Button(
+                    onClick = {
+                        focusManager.clearFocus()
+                        validateAndSubmit(inputText, isFa, { localError = it }, onSubmitSubscription)
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(58.dp)
+                        .graphicsLayer {
+                            scaleX = buttonScale
+                            scaleY = buttonScale
+                        }
+                        .shadow(
+                            elevation = if (inputText.isNotBlank()) 12.dp else 4.dp,
+                            shape = RoundedCornerShape(24.dp),
+                            spotColor = EmeraldGreen.copy(alpha = 0.45f),
+                            ambientColor = EmeraldGreen.copy(alpha = 0.20f)
+                        ),
+                    shape = RoundedCornerShape(24.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = EmeraldGreen,
+                        contentColor = Color.Black
+                    ),
+                    interactionSource = buttonInteractionSource,
+                    enabled = !isLoading
+                ) {
+                    if (isLoading) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(24.dp),
+                            color = Color.Black,
+                            strokeWidth = 2.5.dp
+                        )
+                    } else {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.Center
                         ) {
                             Icon(
-                                imageVector = Icons.Rounded.ErrorOutline,
+                                imageVector = Icons.Rounded.CheckCircle,
                                 contentDescription = null,
-                                tint = Color(0xFFFF5252),
-                                modifier = Modifier.size(18.dp)
+                                tint = Color.Black,
+                                modifier = Modifier.size(20.dp)
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                text = activeError,
-                                color = Color(0xFFFF5252),
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.Medium,
-                                textAlign = TextAlign.Center
+                                text = if (isFa) "تایید و دریافت سرورها" else "Submit & Fetch Servers",
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = Color.Black
                             )
                         }
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.height(26.dp))
+            Spacer(modifier = Modifier.height(28.dp))
 
-            // Soft Liquid Submit Button with Spring Touch Feedback
-            Button(
-                onClick = {
-                    focusManager.clearFocus()
-                    validateAndSubmit(inputText, isFa, { localError = it }, onSubmitSubscription)
-                },
+            // Footer: Security & Encryption Badge
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center,
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .height(56.dp)
-                    .graphicsLayer {
-                        scaleX = buttonScale
-                        scaleY = buttonScale
-                    }
-                    .shadow(
-                        elevation = if (inputText.isNotBlank()) 10.dp else 4.dp,
-                        shape = RoundedCornerShape(22.dp),
-                        spotColor = EmeraldGreen.copy(alpha = 0.45f),
-                        ambientColor = EmeraldGreen.copy(alpha = 0.2f)
-                    ),
-                shape = RoundedCornerShape(22.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = EmeraldGreen,
-                    contentColor = Color.Black
-                ),
-                interactionSource = buttonInteractionSource,
-                enabled = !isLoading
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(TunnixStyle.glass.glassBorder.copy(alpha = 0.10f))
+                    .padding(horizontal = 14.dp, vertical = 7.dp)
             ) {
-                if (isLoading) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(24.dp),
-                        color = Color.Black,
-                        strokeWidth = 2.5.dp
-                    )
-                } else {
-                    Text(
-                        text = if (isFa) "تایید" else "Submit",
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.Black
-                    )
-                }
+                Icon(
+                    imageVector = Icons.Rounded.Lock,
+                    contentDescription = null,
+                    tint = TunnixStyle.glass.textMuted,
+                    modifier = Modifier.size(14.dp)
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    text = if (isFa) "اتصال مستقیم و ذخیره‌سازی محلی رمزنگاری‌شده" else "Direct connection & encrypted local storage",
+                    color = TunnixStyle.glass.textMuted,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Normal
+                )
             }
         }
     }

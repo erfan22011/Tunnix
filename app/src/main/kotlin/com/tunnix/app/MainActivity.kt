@@ -31,7 +31,8 @@ class MainActivity : ComponentActivity() {
         // to prevent any black/white flash during cold and warm startup
         val cachedTheme = AppSettingsDataStore.getCachedThemeMode(this)
         val isDark = cachedTheme == ThemeMode.DARK
-        val bgArgb = if (isDark) 0xFF0B0E14.toInt() else 0xFFF8FAFC.toInt()
+        val bgArgb = if (isDark) 0xFF0A0E17.toInt() else 0xFFF4F6F9.toInt()
+        window.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(bgArgb))
         window.decorView.setBackgroundColor(bgArgb)
         window.statusBarColor = bgArgb
         window.navigationBarColor = bgArgb

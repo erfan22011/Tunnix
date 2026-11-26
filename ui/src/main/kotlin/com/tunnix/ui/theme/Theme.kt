@@ -122,6 +122,8 @@ fun TunnixTheme(
 
                 window.statusBarColor = barColor
                 window.navigationBarColor = barColor
+                window.decorView.setBackgroundColor(barColor)
+                window.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(barColor))
 
                 insetsController.isAppearanceLightStatusBars = !isDark
                 insetsController.isAppearanceLightNavigationBars = !isDark

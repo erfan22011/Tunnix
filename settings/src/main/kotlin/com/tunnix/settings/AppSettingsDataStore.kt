@@ -106,8 +106,8 @@ class AppSettingsDataStore(private val context: Context) {
         }
 
         val serverId = prefs[Keys.SELECTED_SERVER_ID] ?: ""
-        val langCode = prefs[Keys.LANGUAGE] ?: AppLanguage.PERSIAN.code
-        val themeStr = prefs[Keys.THEME_MODE] ?: ThemeMode.DARK.name
+        val langCode = prefs[Keys.LANGUAGE] ?: getCachedLanguage(context).code
+        val themeStr = prefs[Keys.THEME_MODE] ?: getCachedThemeMode(context).name
         val dlJson = prefs[Keys.DOWNLOAD_SETTINGS]
 
         val dlConfig = if (!dlJson.isNullOrBlank()) {
