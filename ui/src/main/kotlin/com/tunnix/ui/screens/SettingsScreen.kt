@@ -269,7 +269,7 @@ fun SettingsScreen(
                         checkedThumbColor = EmeraldGreen,
                         checkedTrackColor = EmeraldGreen.copy(alpha = 0.35f),
                         uncheckedThumbColor = TunnixStyle.glass.textMuted,
-                        uncheckedTrackColor = TunnixStyle.glass.cardBorder.copy(alpha = 0.2f)
+                        uncheckedTrackColor = TunnixStyle.glass.glassBorder.copy(alpha = 0.2f)
                     )
                 )
             }

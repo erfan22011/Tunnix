@@ -27,7 +27,7 @@ def check():
     except Exception as e:
         print(f"Error checking jobs: {e}")
 
-    url_rel = "https://api.github.com/repos/erfan22011/Tunnix/releases/tags/v1.0.5"
+    url_rel = "https://api.github.com/repos/erfan22011/Tunnix/releases/tags/v1.0.6"
     req_rel = urllib.request.Request(url_rel, headers={"User-Agent": "Tunnix-Release-Monitor"})
     try:
         with urllib.request.urlopen(req_rel, timeout=10) as resp:
