@@ -36,10 +36,22 @@ object SubscriptionDomainRules {
         val cleanHost = host.trim().lowercase()
 
         // Block SSRF: Reject localhost, internal loopbacks and private IP addresses
-        if (cleanHost == "localhost" || cleanHost == "127.0.0.1" || cleanHost == "::1" ||
-            cleanHost.startsWith("10.") || cleanHost.startsWith("192.168.") ||
+        if (cleanHost == "localhost" || cleanHost == "127.0.0.1" || cleanHost == "::1" || cleanHost == "[::1]" || cleanHost == "0.0.0.0" ||
+            cleanHost.startsWith("127.") || cleanHost.startsWith("10.") || cleanHost.startsWith("192.168.") ||
+            cleanHost.startsWith("169.254.") || cleanHost.startsWith("100.64.") ||
             cleanHost.endsWith(".local") || cleanHost.endsWith(".internal") || cleanHost.endsWith(".lan")) {
             return false
+        }
+
+        // Block RFC 1918 172.16.0.0 - 172.31.255.255
+        if (cleanHost.startsWith("172.")) {
+            val parts = cleanHost.split(".")
+            if (parts.size >= 2) {
+                val secondOctet = parts[1].toIntOrNull()
+                if (secondOctet != null && secondOctet in 16..31) {
+                    return false
+                }
+            }
         }
 
         return ALLOWED_DOMAINS.any { allowed ->

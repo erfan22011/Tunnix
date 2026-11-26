@@ -57,14 +57,30 @@ class SubscriptionFetcher(
     }
 
     companion object {
+        private const val MAX_REDIRECTS = 5
+        private val redirectCount = ThreadLocal<Int>()
+
         fun defaultClient(): OkHttpClient {
             return OkHttpClient.Builder()
                 .connectTimeout(15, TimeUnit.SECONDS)
                 .readTimeout(15, TimeUnit.SECONDS)
                 .writeTimeout(15, TimeUnit.SECONDS)
+                .addInterceptor { chain ->
+                    redirectCount.set(0)
+                    try {
+                        chain.proceed(chain.request())
+                    } finally {
+                        redirectCount.remove()
+                    }
+                }
                 .addNetworkInterceptor { chain ->
                     val response = chain.proceed(chain.request())
                     if (response.isRedirect) {
+                        val count = (redirectCount.get() ?: 0) + 1
+                        redirectCount.set(count)
+                        if (count > MAX_REDIRECTS) {
+                            throw IOException("تعداد ریدایرکت‌ها بیش از حد مجاز است / Too many redirects: $count")
+                        }
                         val location = response.header("Location")
                         if (!location.isNullOrBlank()) {
                             val validation = SubscriptionDomainRules.normalizeAndValidate(location)
