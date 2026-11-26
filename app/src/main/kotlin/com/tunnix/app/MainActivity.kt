@@ -1,7 +1,9 @@
 package com.tunnix.app
 
 import android.app.Activity
+import android.os.Build
 import android.os.Bundle
+import android.view.WindowInsetsController
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
@@ -12,6 +14,8 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import com.tunnix.core.models.ThemeMode
+import com.tunnix.settings.AppSettingsDataStore
 import com.tunnix.ui.navigation.TunnixNavigation
 import com.tunnix.ui.theme.TunnixStyle
 import com.tunnix.ui.theme.TunnixTheme
@@ -22,6 +26,31 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // Set native window canvas and system bars dynamically before setContent
+        // to prevent any black/white flash during cold and warm startup
+        val cachedTheme = AppSettingsDataStore.getCachedThemeMode(this)
+        val isDark = cachedTheme == ThemeMode.DARK
+        val bgArgb = if (isDark) 0xFF0B0E14.toInt() else 0xFFF8FAFC.toInt()
+        window.decorView.setBackgroundColor(bgArgb)
+        window.statusBarColor = bgArgb
+        window.navigationBarColor = bgArgb
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            val controller = window.insetsController
+            if (controller != null) {
+                val appearance = if (!isDark) {
+                    WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS or WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS
+                } else {
+                    0
+                }
+                controller.setSystemBarsAppearance(
+                    appearance,
+                    WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS or WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS
+                )
+            }
+        }
+
         setContent {
             val uiState by viewModel.uiState.collectAsState()
 
@@ -90,7 +119,7 @@ class MainActivity : ComponentActivity() {
                         )
                     }
                 }
+            }
         }
     }
-}
 }

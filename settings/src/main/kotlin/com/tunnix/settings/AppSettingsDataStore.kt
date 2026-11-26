@@ -32,6 +32,44 @@ class AppSettingsDataStore(private val context: Context) {
 
     private val gson = Gson()
 
+    companion object {
+        private const val FAST_CACHE_PREFS = "tunnix_fast_cache"
+        private const val KEY_CACHED_THEME = "fast_cached_theme_mode"
+        private const val KEY_CACHED_LANG = "fast_cached_language"
+
+        fun getCachedThemeMode(context: Context): ThemeMode {
+            val prefs = context.getSharedPreferences(FAST_CACHE_PREFS, Context.MODE_PRIVATE)
+            val name = prefs.getString(KEY_CACHED_THEME, null)
+            return if (name != null) {
+                try { ThemeMode.valueOf(name) } catch (_: Exception) { ThemeMode.DARK }
+            } else {
+                // If no preference saved yet, check system theme
+                val uiMode = context.resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK
+                if (uiMode == android.content.res.Configuration.UI_MODE_NIGHT_YES) ThemeMode.DARK else ThemeMode.LIGHT
+            }
+        }
+
+        fun getCachedLanguage(context: Context): AppLanguage {
+            val prefs = context.getSharedPreferences(FAST_CACHE_PREFS, Context.MODE_PRIVATE)
+            val code = prefs.getString(KEY_CACHED_LANG, AppLanguage.PERSIAN.code)
+            return AppLanguage.fromCode(code ?: AppLanguage.PERSIAN.code)
+        }
+
+        fun setCachedThemeMode(context: Context, themeMode: ThemeMode) {
+            context.getSharedPreferences(FAST_CACHE_PREFS, Context.MODE_PRIVATE)
+                .edit()
+                .putString(KEY_CACHED_THEME, themeMode.name)
+                .apply()
+        }
+
+        fun setCachedLanguage(context: Context, language: AppLanguage) {
+            context.getSharedPreferences(FAST_CACHE_PREFS, Context.MODE_PRIVATE)
+                .edit()
+                .putString(KEY_CACHED_LANG, language.code)
+                .apply()
+        }
+    }
+
     private object Keys {
         val SUBSCRIPTION_URL = stringPreferencesKey("key_sub_url")
         val SELECTED_SERVER_ID = stringPreferencesKey("key_selected_server_id")
@@ -108,10 +146,12 @@ class AppSettingsDataStore(private val context: Context) {
     }
 
     suspend fun saveLanguage(language: AppLanguage) {
+        setCachedLanguage(context, language)
         context.dataStore.edit { it[Keys.LANGUAGE] = language.code }
     }
 
     suspend fun saveThemeMode(themeMode: ThemeMode) {
+        setCachedThemeMode(context, themeMode)
         context.dataStore.edit { it[Keys.THEME_MODE] = themeMode.name }
     }
 

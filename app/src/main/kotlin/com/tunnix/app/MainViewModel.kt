@@ -54,7 +54,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private var fetchJob: Job? = null
     private var hasDoneInitialRefresh: Boolean = false
 
-    private val _uiState = MutableStateFlow(UiState())
+    private val cachedTheme = AppSettingsDataStore.getCachedThemeMode(application)
+    private val cachedLang = AppSettingsDataStore.getCachedLanguage(application)
+    private val _uiState = MutableStateFlow(UiState(themeMode = cachedTheme, language = cachedLang))
     val uiState: StateFlow<UiState> = _uiState.asStateFlow()
 
     init {

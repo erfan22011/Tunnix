@@ -6,4 +6,5 @@
     <color name="surface_dark">#121824</color>
     <color name="background_light">#F8FAFC</color>
     <color name="surface_light">#FFFFFF</color>
+    <color name="window_background">#F8FAFC</color>
 </resources>

@@ -3,6 +3,8 @@ package com.tunnix.ui.navigation
 import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
@@ -70,16 +72,32 @@ fun TunnixNavigation(
                 .fillMaxSize()
                 .background(TunnixStyle.glass.background),
             enterTransition = {
-                slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Start, tween(300, easing = FastOutSlowInEasing))
+                slideIntoContainer(
+                    AnimatedContentTransitionScope.SlideDirection.Start,
+                    tween(240, easing = FastOutSlowInEasing),
+                    initialOffset = { it / 6 }
+                ) + fadeIn(tween(240, easing = FastOutSlowInEasing))
             },
             exitTransition = {
-                slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Start, tween(300, easing = FastOutSlowInEasing))
+                slideOutOfContainer(
+                    AnimatedContentTransitionScope.SlideDirection.Start,
+                    tween(240, easing = FastOutSlowInEasing),
+                    targetOffset = { it / 6 }
+                ) + fadeOut(tween(200, easing = FastOutSlowInEasing))
             },
             popEnterTransition = {
-                slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.End, tween(300, easing = FastOutSlowInEasing))
+                slideIntoContainer(
+                    AnimatedContentTransitionScope.SlideDirection.End,
+                    tween(240, easing = FastOutSlowInEasing),
+                    initialOffset = { it / 6 }
+                ) + fadeIn(tween(240, easing = FastOutSlowInEasing))
             },
             popExitTransition = {
-                slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.End, tween(300, easing = FastOutSlowInEasing))
+                slideOutOfContainer(
+                    AnimatedContentTransitionScope.SlideDirection.End,
+                    tween(240, easing = FastOutSlowInEasing),
+                    targetOffset = { it / 6 }
+                ) + fadeOut(tween(200, easing = FastOutSlowInEasing))
             }
         ) {
             composable("redeem") {
@@ -110,9 +128,6 @@ fun TunnixNavigation(
                     onNavigateToSettings = { navController.navigate("settings") },
                     onChangeSubscription = {
                         onChangeSubscription()
-                        navController.navigate("redeem") {
-                            popUpTo("main") { inclusive = true }
-                        }
                     },
                     currentLanguage = language
                 )
