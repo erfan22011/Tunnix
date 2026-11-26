@@ -43,9 +43,7 @@ fun TunnixNavigation(
     downloadSettings: DownloadSettingsConfig = DownloadSettingsConfig.DEFAULT,
     onSaveDownloadSettings: (DownloadSettingsConfig) -> Unit = {},
     onChangeSubscription: () -> Unit = {},
-    hasSubscription: Boolean = false,
-    bypassIran: Boolean = true,
-    onBypassIranChange: (Boolean) -> Unit = {}
+    hasSubscription: Boolean = false
 ) {
     val navController = rememberNavController()
     val startDestination = if (hasSubscription) "main" else "redeem"
@@ -141,8 +139,6 @@ fun TunnixNavigation(
                     onThemeChange = onThemeChange,
                     downloadSettings = downloadSettings,
                     onSaveDownloadSettings = onSaveDownloadSettings,
-                    bypassIran = bypassIran,
-                    onBypassIranChange = onBypassIranChange,
                     onNavigateBack = { navController.popBackStack() }
                 )
             }

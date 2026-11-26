@@ -57,7 +57,7 @@ class TunnixVpnService : VpnService() {
                     intent.getSerializableExtra(VpnTunnelManager.EXTRA_SERVER) as? ServerConfig
                 }
 
-                val bypassIran = intent.getBooleanExtra(VpnTunnelManager.EXTRA_BYPASS_IRAN, true)
+                val bypassIran = intent.getBooleanExtra(VpnTunnelManager.EXTRA_BYPASS_IRAN, false)
 
                 if (server != null) {
                     startTunnel(server, bypassIran)
@@ -103,7 +103,7 @@ class TunnixVpnService : VpnService() {
         stopTunnel(targetError = null)
     }
 
-    private fun startTunnel(server: ServerConfig, bypassIran: Boolean = true) {
+    private fun startTunnel(server: ServerConfig, bypassIran: Boolean = false) {
         // Cancel any pending transition to prevent start/stop interleaving races
         transitionJob?.cancel()
         activeServer = server

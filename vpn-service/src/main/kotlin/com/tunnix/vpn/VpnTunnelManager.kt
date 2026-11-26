@@ -33,7 +33,7 @@ object VpnTunnelManager {
         }
     }
 
-    fun startVpn(context: Context, server: ServerConfig, bypassIran: Boolean = true) {
+    fun startVpn(context: Context, server: ServerConfig, bypassIran: Boolean = false) {
         if (isConnectingOrConnected.get() && activeServer?.id == server.id) {
             return // Already connecting or connected to this server
         }

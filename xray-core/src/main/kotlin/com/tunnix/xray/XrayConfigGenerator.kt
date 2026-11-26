@@ -26,7 +26,7 @@ object XrayConfigGenerator {
         socksPort: Int = DEFAULT_SOCKS_PORT,
         httpPort: Int = DEFAULT_HTTP_PORT,
         customDownloadSettings: DownloadSettingsConfig? = null,
-        bypassIran: Boolean = true
+        bypassIran: Boolean = false
     ): String {
         val root = JsonObject()
 
