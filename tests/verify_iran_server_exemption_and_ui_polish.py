@@ -18,10 +18,9 @@ assert "addExemptTarget(server.host)" in xray_code, "server.host must be collect
 assert "customDownloadSettings?.let" in xray_code and "addExemptTarget(dl.address)" in xray_code, "downloadSettings address must be collected!"
 assert "isIpAddress(host)" in xray_code, "isIpAddress helper must be used to partition domains and IPs!"
 
-# Verify DNS upstream priority for exempt domains
-assert 'addProperty("address", "1.1.1.1")' in xray_code, "DNS 1.1.1.1 must be configured for exempt domains!"
-assert 'addProperty("address", "8.8.8.8")' in xray_code, "DNS 8.8.8.8 must be configured for exempt domains!"
-assert 'add("full:$d")' in xray_code and 'add("domain:$d")' in xray_code, "Exempt domains must use full and domain prefixes!"
+# Verify DNS upstream priority for resilient resolution
+assert 'add("1.1.1.1")' in xray_code, "DNS 1.1.1.1 must be configured in servers array!"
+assert 'add("localhost")' in xray_code, "DNS localhost must be configured for domestic resolution!"
 
 # Verify Top-priority Proxy Outbound routing rule before domestic rules
 assert 'addProperty("outboundTag", "proxy")' in xray_code, "Top priority rule must route exempt targets to proxy outbound!"

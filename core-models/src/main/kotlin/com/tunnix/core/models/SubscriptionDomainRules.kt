@@ -48,12 +48,30 @@ object SubscriptionDomainRules {
     }
 
     /**
-     * Sanitizes a subscription URL by redacting the private token segment from logs and errors.
+     * Sanitizes a subscription URL by redacting the private token and path segments.
+     * Never exposes private keys or server paths in logs or diagnostics.
      * Example: "https://sb.tootcloud.shop:2096/sub/iygsr9fn68393003" -> "https://sb.tootcloud.shop:2096/sub/[REDACTED]"
+     * Example: "https://ovv.pelqexa.ir:2096/jbutuijo/3tgs1" -> "https://ovv.pelqexa.ir:2096/[REDACTED]"
      */
     fun sanitizeUrl(url: String?): String {
         if (url.isNullOrBlank()) return ""
-        return url.replace(Regex("/sub/[a-zA-Z0-9_.-]+"), "/sub/[REDACTED]")
+        return try {
+            val uri = URI(url)
+            val host = uri.host ?: ""
+            val portStr = if (uri.port != -1 && uri.port != 443 && uri.port != 80) ":${uri.port}" else ""
+            if (host.isNotEmpty()) {
+                val path = uri.rawPath ?: ""
+                if (path.startsWith("/sub/")) {
+                    "https://$host$portStr/sub/[REDACTED]"
+                } else {
+                    "https://$host$portStr/[REDACTED]"
+                }
+            } else {
+                "[REDACTED]"
+            }
+        } catch (_: Exception) {
+            "[REDACTED]"
+        }
     }
 
     /**
@@ -62,15 +80,15 @@ object SubscriptionDomainRules {
      *
      * Security controls:
      * 1. Max input length (<= 2048 chars)
-     * 2. Strict HTTPS enforcement (Insecure HTTP is strictly rejected)
+     * 2. Strict HTTPS enforcement (Insecure HTTP is upgraded or rejected safely)
      * 3. Allowed domain whitelist with SSRF protection
-     * 4. Safe URI construction using Java standard URI constructor (no string interpolation vulnerabilities)
+     * 4. Safe URI construction using Java standard URI constructor
      * 5. Strict token character whitelisting and length bounding
      *
      * Returns Result.success(normalizedUrl) or Result.failure(Exception).
      */
     fun normalizeAndValidate(input: String): Result<String> {
-        val trimmed = input.trim()
+        var trimmed = input.trim()
         if (trimmed.isEmpty()) {
             return Result.failure(IllegalArgumentException("ورودی خالی است / Input is empty"))
         }
@@ -79,11 +97,20 @@ object SubscriptionDomainRules {
             return Result.failure(IllegalArgumentException("طول ورودی بیش از حد مجاز است / Input exceeds length limit"))
         }
 
-        // Strict HTTPS enforcement: Insecure HTTP is rejected immediately
+        // Auto-upgrade plain http:// to https:// if user pasted with http
         if (trimmed.startsWith("http://", ignoreCase = true)) {
-            return Result.failure(
-                IllegalArgumentException("استفاده از پروتکل ناامن HTTP مجاز نیست. فقط HTTPS پشتیبانی می‌شود / Insecure HTTP protocol rejected. Only HTTPS is allowed.")
-            )
+            trimmed = "https://" + trimmed.substring(7)
+        }
+
+        // If user pasted domain without scheme e.g. "ovv.pelqexa.ir:2096/..." or "sb.tootcloud.shop:2096/..."
+        if (!trimmed.startsWith("https://", ignoreCase = true)) {
+            val hasKnownDomain = ALLOWED_DOMAINS.any { allowed ->
+                trimmed.startsWith(allowed, ignoreCase = true) ||
+                trimmed.contains(".$allowed", ignoreCase = true)
+            }
+            if (hasKnownDomain && (trimmed.contains("/") || trimmed.contains(":"))) {
+                trimmed = "https://$trimmed"
+            }
         }
 
         // If the input is a full HTTPS URL
@@ -115,7 +142,7 @@ object SubscriptionDomainRules {
 
                 Result.success(trimmed)
             } catch (e: Exception) {
-                Result.failure(IllegalArgumentException("فرمت لینک نامعتبر است / Invalid URL format: ${e.message}"))
+                Result.failure(IllegalArgumentException("فرمت لینک نامعتبر است / Invalid URL format"))
             }
         }
 
@@ -146,7 +173,7 @@ object SubscriptionDomainRules {
             )
             Result.success(constructedUri.toASCIIString())
         } catch (e: Exception) {
-            Result.failure(IllegalArgumentException("خطا در ساخت آدرس امن اشتراک / Failed to construct safe URL: ${e.message}"))
+            Result.failure(IllegalArgumentException("خطا در ساخت آدرس امن اشتراک / Failed to construct safe URL"))
         }
     }
 }

@@ -315,7 +315,20 @@ fun RedeemScreen(
             }
 
             // Animated Error Display (Smooth slide & fade)
-            val activeError = localError ?: errorMessage
+            val activeError = (localError ?: errorMessage)?.let { rawErr ->
+                var sanitized = rawErr.replace(Regex("https?://[^\\s)\\]]+"), "")
+                    .replace(Regex("\\b\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}(?::\\d+)?\\b"), "")
+                    .replace(": null", "")
+                    .replace("null", "")
+                    .replace("()", "")
+                    .trim()
+                if (sanitized.isBlank()) {
+                    if (isFa) "خطا در برقراری ارتباط با سرور. لطفاً اتصال اینترنت خود را بررسی نمایید."
+                    else "Unable to connect to server. Please check your internet connection."
+                } else {
+                    sanitized
+                }
+            }
             AnimatedVisibility(
                 visible = !activeError.isNullOrBlank(),
                 enter = expandVertically(tween(220)) + fadeIn(tween(220)),
@@ -385,8 +398,7 @@ private fun validateAndSubmit(
     if (validationResult.isSuccess) {
         onSubmit(validationResult.getOrThrow())
     } else {
-        val err = validationResult.exceptionOrNull()?.message
-            ?: if (isFa) "کد یا لینک نامعتبر است" else "Invalid code or URL"
+        val err = if (isFa) "کد یا لینک وارد شده نامعتبر است" else "Invalid code or URL"
         onError(err)
     }
 }

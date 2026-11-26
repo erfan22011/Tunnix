@@ -34,11 +34,24 @@ class SubscriptionDomainRulesTest {
     }
 
     @Test
-    fun `test reject plain HTTP protocol`() {
+    fun `test auto upgrade plain HTTP to HTTPS`() {
         val httpUrl = "http://sb.tootcloud.shop:2096/sub/iygsr9fn68393003"
         val res = SubscriptionDomainRules.normalizeAndValidate(httpUrl)
-        assertTrue(res.isFailure)
-        assertTrue(res.exceptionOrNull()?.message?.contains("پروتکل ناامن HTTP") == true)
+        assertTrue(res.isSuccess)
+        assertEquals("https://sb.tootcloud.shop:2096/sub/iygsr9fn68393003", res.getOrNull())
+    }
+
+    @Test
+    fun `test custom path URL and missing scheme`() {
+        val customUrl = "https://ovv.pelqexa.ir:2096/jbutuijo6w4k4v50/3tgs1glkywe5u5cc"
+        val res = SubscriptionDomainRules.normalizeAndValidate(customUrl)
+        assertTrue(res.isSuccess)
+        assertEquals(customUrl, res.getOrNull())
+
+        val missingScheme = "ovv.pelqexa.ir:2096/jbutuijo6w4k4v50/3tgs1glkywe5u5cc"
+        val resScheme = SubscriptionDomainRules.normalizeAndValidate(missingScheme)
+        assertTrue(resScheme.isSuccess)
+        assertEquals(customUrl, resScheme.getOrNull())
     }
 
     @Test

@@ -175,4 +175,61 @@ class XrayConfigGeneratorTest {
         val serversArray = proxy.getAsJsonObject("settings").getAsJsonArray("servers")
         assertEquals("mypassword", serversArray[0].asJsonObject.get("password").asString)
     }
+
+    @Test
+    fun `test bypassIran routing rules without external dat files and AsIs domainStrategy`() {
+        val server = ServerConfig(
+            id = "test-iran-bypass",
+            name = "Iran Direct Server",
+            address = "ovv.pelqexa.ir",
+            port = 2096,
+            protocol = ProtocolType.VLESS,
+            network = NetworkType.TCP,
+            security = "tls",
+            uuid = "03fa381a-21f2-4b75-9b6e-a4595d62106e"
+        )
+
+        val jsonString = XrayConfigGenerator.generate(server, bypassIran = true)
+        val root = JsonParser.parseString(jsonString).asJsonObject
+
+        val routing = root.getAsJsonObject("routing")
+        assertEquals("domainStrategy must be AsIs to prevent UDP 53 blocking", "AsIs", routing.get("domainStrategy").asString)
+
+        val rules = routing.getAsJsonArray("rules")
+        var hasGeositeOrGeoip = false
+        var hasDirectIranDomains = false
+        var hasProxyExemptRule = false
+
+        for (elem in rules) {
+            val rule = elem.asJsonObject
+            val outbound = rule.get("outboundTag").asString
+
+            if (rule.has("domain")) {
+                val dList = rule.getAsJsonArray("domain").map { it.asString }
+                if (dList.any { it.contains("geosite") || it.contains("geoip") }) {
+                    hasGeositeOrGeoip = true
+                }
+                if (outbound == "direct" && dList.contains("regexp:.*\\.ir$") && dList.contains("domain:ir")) {
+                    hasDirectIranDomains = true
+                }
+                if (outbound == "proxy" && dList.any { it.contains("ovv.pelqexa.ir") }) {
+                    hasProxyExemptRule = true
+                }
+            }
+            if (rule.has("ip")) {
+                val ipList = rule.getAsJsonArray("ip").map { it.asString }
+                if (ipList.any { it.contains("geoip") || it.contains("geosite") }) {
+                    hasGeositeOrGeoip = true
+                }
+            }
+        }
+
+        assertFalse("Rules must NOT depend on missing geoip/geosite .dat files", hasGeositeOrGeoip)
+        assertTrue("Iran domains must route directly via in-memory rules", hasDirectIranDomains)
+        assertTrue("Server endpoint must be exempt from direct routing", hasProxyExemptRule)
+
+        val dns = root.getAsJsonObject("dns")
+        val dnsServers = dns.getAsJsonArray("servers").map { it.asString }
+        assertTrue("DNS must include localhost for local resolution", dnsServers.contains("localhost"))
+    }
 }

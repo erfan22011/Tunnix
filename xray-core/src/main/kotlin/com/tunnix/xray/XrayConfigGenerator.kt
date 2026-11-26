@@ -101,65 +101,9 @@ object XrayConfigGenerator {
         // 4. DNS configuration
         val dns = JsonObject().apply {
             val serversArray = JsonArray().apply {
-                // Top Priority: Exempt config domains so they resolve via standard secure upstream DNS
-                // and are NEVER redirected to localhost by domestic direct DNS rules.
-                if (bypassIran && exemptDomains.isNotEmpty()) {
-                    val exemptDns1 = JsonObject().apply {
-                        addProperty("address", "1.1.1.1")
-                        addProperty("port", 53)
-                        val dArray = JsonArray().apply {
-                            exemptDomains.forEach { d ->
-                                add("full:$d")
-                                add("domain:$d")
-                            }
-                        }
-                        add("domains", dArray)
-                    }
-                    add(exemptDns1)
-
-                    val exemptDns2 = JsonObject().apply {
-                        addProperty("address", "8.8.8.8")
-                        addProperty("port", 53)
-                        val dArray = JsonArray().apply {
-                            exemptDomains.forEach { d ->
-                                add("full:$d")
-                                add("domain:$d")
-                            }
-                        }
-                        add("domains", dArray)
-                    }
-                    add(exemptDns2)
-                }
-
-                if (bypassIran) {
-                    val directDns = JsonObject().apply {
-                        addProperty("address", "localhost")
-                        val domainsArray = JsonArray().apply {
-                            add("regexp:.*\\.ir$")
-                            add("domain:ir")
-                            add("geosite:ir")
-                            add("domain:digikala.com")
-                            add("domain:aparat.com")
-                            add("domain:telewebion.com")
-                            add("domain:varzesh3.com")
-                            add("domain:torob.com")
-                            add("domain:eitaa.com")
-                            add("domain:rubika.ir")
-                            add("domain:bale.ai")
-                            add("domain:splus.ir")
-                            add("domain:shaparak.ir")
-                            add("domain:filimo.com")
-                            add("domain:namava.ir")
-                            add("domain:snapp.ir")
-                            add("domain:divar.ir")
-                        }
-                        add("domains", domainsArray)
-                    }
-                    add(directDns)
-                }
+                add("localhost")
                 add("1.1.1.1")
                 add("8.8.8.8")
-                add("localhost")
             }
             add("servers", serversArray)
         }
@@ -167,7 +111,8 @@ object XrayConfigGenerator {
 
         // 5. Routing rules
         val routing = JsonObject().apply {
-            addProperty("domainStrategy", if (bypassIran) "IPIfNonMatch" else "AsIs")
+            // "AsIs" prevents blocking on blocked port 53 upstream DNS queries in restrictive networks
+            addProperty("domainStrategy", "AsIs")
             val rulesArray = JsonArray().apply {
                 // Private IPs -> Direct
                 val privateRule = JsonObject().apply {
@@ -211,7 +156,7 @@ object XrayConfigGenerator {
                     add(exemptRule)
                 }
 
-                // Iranian Domestic Traffic -> Direct (Instant bypass, never passes through VPN tunnel)
+                // Iranian Domestic Traffic -> Direct (Instant bypass, pure domain rules, zero external .dat dependency)
                 if (bypassIran) {
                     val iranDomainRule = JsonObject().apply {
                         addProperty("type", "field")
@@ -221,7 +166,6 @@ object XrayConfigGenerator {
                             val standardDomains = listOf(
                                 "regexp:.*\\.ir$",
                                 "domain:ir",
-                                "geosite:ir",
                                 "domain:digikala.com",
                                 "domain:aparat.com",
                                 "domain:telewebion.com",
@@ -288,16 +232,6 @@ object XrayConfigGenerator {
                         add("domain", domainArray)
                     }
                     add(iranDomainRule)
-
-                    val iranGeoIpRule = JsonObject().apply {
-                        addProperty("type", "field")
-                        addProperty("outboundTag", "direct")
-                        val ipArray = JsonArray().apply {
-                            add("geoip:ir")
-                        }
-                        add("ip", ipArray)
-                    }
-                    add(iranGeoIpRule)
                 }
 
                 // All other TCP/UDP traffic -> Proxy

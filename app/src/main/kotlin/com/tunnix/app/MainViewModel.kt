@@ -213,7 +213,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     )
                 }
             } else {
-                val errorMsg = result.exceptionOrNull()?.message ?: "خطا در دریافت سرورها"
+                val rawMsg = result.exceptionOrNull()?.message
+                val errorMsg = sanitizeErrorMessage(rawMsg)
                 // RESILIENT: Never wipe out existing servers on network failure!
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
@@ -221,6 +222,22 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 )
             }
         }
+    }
+
+    private fun sanitizeErrorMessage(raw: String?): String {
+        if (raw.isNullOrBlank()) return "خطا در برقراری ارتباط با سرور. لطفاً مجدداً تلاش نمایید."
+        var msg = raw
+        // Strip full URLs (http:// or https://...)
+        msg = msg.replace(Regex("https?://[^\\s)\\]]+"), "")
+        // Strip IP addresses with or without port
+        msg = msg.replace(Regex("\\b\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}(?::\\d+)?\\b"), "")
+        // Strip trailing or isolated null, redundant colons, brackets
+        msg = msg.replace(": null", "").replace("null", "").replace("()", "")
+        msg = msg.trim().trim(':', '-', ' ')
+        if (msg.isBlank()) {
+            return "خطا در برقراری ارتباط با سرور سابسکریپشن. لطفاً اتصال اینترنت خود را بررسی نمایید."
+        }
+        return msg
     }
 
     fun selectServer(server: ServerConfig) {
