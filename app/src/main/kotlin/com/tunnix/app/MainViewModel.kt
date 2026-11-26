@@ -3,7 +3,12 @@ package com.tunnix.app
 import android.app.Application
 import android.content.Context
 import android.content.Intent
+import android.net.ConnectivityManager
+import android.net.Network
+import android.net.NetworkCapabilities
+import android.net.NetworkRequest
 import android.net.VpnService
+import android.os.Build
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.tunnix.core.models.AppLanguage
@@ -41,6 +46,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val dataStore = AppSettingsDataStore(application)
     private val fetcher = SubscriptionFetcher()
     private var rawServers: List<ServerConfig> = emptyList()
+    private var currentSubscriptionUrl: String = ""
+    private var networkCallback: ConnectivityManager.NetworkCallback? = null
 
     private val _uiState = MutableStateFlow(UiState())
     val uiState: StateFlow<UiState> = _uiState.asStateFlow()
@@ -49,14 +56,52 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         observeDataStore()
         observeVpnState()
         observeTrafficStats()
+        observeNetworkConnectivity()
+    }
+
+    private fun isOnline(): Boolean {
+        val cm = getApplication<Application>().getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager ?: return false
+        val network = cm.activeNetwork ?: return false
+        val caps = cm.getNetworkCapabilities(network) ?: return false
+        return caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+    }
+
+    private fun observeNetworkConnectivity() {
+        val cm = getApplication<Application>().getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager ?: return
+        networkCallback = object : ConnectivityManager.NetworkCallback() {
+            override fun onAvailable(network: Network) {
+                // When internet becomes available (e.g. user turns on Wi-Fi or mobile data),
+                // automatically refresh/fetch servers if subscription exists.
+                val subUrl = currentSubscriptionUrl
+                if (subUrl.isNotBlank()) {
+                    loadSubscription(subUrl, _uiState.value.selectedServer?.id)
+                }
+            }
+        }
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                cm.registerDefaultNetworkCallback(networkCallback!!)
+            } else {
+                val req = NetworkRequest.Builder()
+                    .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                    .build()
+                cm.registerNetworkCallback(req, networkCallback!!)
+            }
+        } catch (_: Exception) {}
     }
 
     private fun observeDataStore() {
         viewModelScope.launch {
             dataStore.preferencesFlow.collect { prefs ->
+                currentSubscriptionUrl = prefs.subscriptionUrl
                 CentralConfigRepository.updateConfig(prefs.downloadSettings)
 
-                val baseList = if (rawServers.isNotEmpty()) rawServers else _uiState.value.servers
+                // 1. Immediately hydrate memory with cached servers if rawServers is empty
+                if (rawServers.isEmpty() && prefs.cachedServers.isNotEmpty()) {
+                    rawServers = prefs.cachedServers
+                }
+
+                val baseList = if (rawServers.isNotEmpty()) rawServers else prefs.cachedServers
                 val updatedServers = if (baseList.isNotEmpty()) {
                     XhttpConfigModifier.modifyAll(baseList, prefs.downloadSettings)
                 } else {
@@ -76,9 +121,17 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     hasSubscription = prefs.subscriptionUrl.isNotBlank()
                 )
 
-                // If subscription URL exists and servers empty, fetch them
-                if (prefs.subscriptionUrl.isNotBlank() && _uiState.value.servers.isEmpty()) {
-                    loadSubscription(prefs.subscriptionUrl, prefs.selectedServerId)
+                // 2. Fetch or refresh from network:
+                // If we have a subscription URL:
+                // - If servers list is still empty, attempt to fetch.
+                // - If internet is online and we have cached servers, silently update in background.
+                if (prefs.subscriptionUrl.isNotBlank()) {
+                    if (updatedServers.isEmpty()) {
+                        loadSubscription(prefs.subscriptionUrl, prefs.selectedServerId)
+                    } else if (isOnline()) {
+                        // Background refresh if online, without clearing cached list
+                        loadSubscription(prefs.subscriptionUrl, prefs.selectedServerId)
+                    }
                 }
             }
         }
@@ -111,34 +164,50 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun loadSubscription(urlOrToken: String, preferredServerId: String? = null) {
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
+            val hasExistingServers = _uiState.value.servers.isNotEmpty()
+            // Only show full-screen loading spinner if there are no existing servers to show
+            if (!hasExistingServers) {
+                _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
+            }
+
             val result = fetcher.fetch(urlOrToken)
             if (result.isSuccess) {
                 val fetchedServers = result.getOrThrow()
-                rawServers = fetchedServers
-                // Apply intelligent XHTTP modification with current downloadSettings
-                val currentConfig = _uiState.value.downloadSettings
-                val modifiedServers = XhttpConfigModifier.modifyAll(fetchedServers, currentConfig)
+                if (fetchedServers.isNotEmpty()) {
+                    rawServers = fetchedServers
+                    // Persist valid server list into local cache
+                    dataStore.saveCachedServers(fetchedServers)
 
-                val selected = if (!preferredServerId.isNullOrBlank()) {
-                    modifiedServers.firstOrNull { it.id == preferredServerId } ?: modifiedServers.firstOrNull()
+                    val currentConfig = _uiState.value.downloadSettings
+                    val modifiedServers = XhttpConfigModifier.modifyAll(fetchedServers, currentConfig)
+
+                    val selected = if (!preferredServerId.isNullOrBlank()) {
+                        modifiedServers.firstOrNull { it.id == preferredServerId } ?: modifiedServers.firstOrNull()
+                    } else {
+                        modifiedServers.firstOrNull { it.id == _uiState.value.selectedServer?.id } ?: modifiedServers.firstOrNull()
+                    }
+
+                    _uiState.value = _uiState.value.copy(
+                        servers = modifiedServers,
+                        selectedServer = selected,
+                        isLoading = false,
+                        errorMessage = null,
+                        hasSubscription = true
+                    )
+                    dataStore.saveSubscriptionUrl(urlOrToken)
+                    selected?.let { dataStore.saveSelectedServerId(it.id) }
                 } else {
-                    modifiedServers.firstOrNull()
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        errorMessage = if (!hasExistingServers) "سابسکریپشن خالی است یا سروری یافت نشد" else null
+                    )
                 }
-
-                _uiState.value = _uiState.value.copy(
-                    servers = modifiedServers,
-                    selectedServer = selected,
-                    isLoading = false,
-                    hasSubscription = true
-                )
-                dataStore.saveSubscriptionUrl(urlOrToken)
-                selected?.let { dataStore.saveSelectedServerId(it.id) }
             } else {
                 val errorMsg = result.exceptionOrNull()?.message ?: "خطا در دریافت سرورها"
+                // RESILIENT: Never wipe out existing servers on network failure!
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
-                    errorMessage = errorMsg
+                    errorMessage = if (!hasExistingServers) errorMsg else null
                 )
             }
         }
@@ -217,11 +286,22 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             dataStore.clearSubscription()
             VpnTunnelManager.stopVpn(getApplication())
+            rawServers = emptyList()
             _uiState.value = _uiState.value.copy(
                 servers = emptyList(),
                 selectedServer = null,
-                hasSubscription = false
+                hasSubscription = false,
+                errorMessage = null
             )
         }
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        try {
+            val cm = getApplication<Application>().getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
+            networkCallback?.let { cm?.unregisterNetworkCallback(it) }
+        } catch (_: Exception) {}
+        networkCallback = null
     }
 }

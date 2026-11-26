@@ -12,11 +12,26 @@
   * `1.0.2` (`versionCode = 3`, `versionName = "1.0.2"`, commit: `39c3f9e`)
   * `1.0.1` (`versionCode = 2`, `versionName = "1.0.1"`, commit: `f670292`)
 * **Permanent Baseline Tag:** `stable-baseline-v1.0.1`
-* **Release Tags:** `v1.0.1`, `v1.0.2`, `v1.0.3`, `v1.0.4`
+* **Release Tags:** `v1.0.1`, `v1.0.2`, `v1.0.3`, `v1.0.4`, `v1.0.5`
 * **Instant Rollback Command to v1.0.1:**
   ```bash
   git checkout main && git reset --hard stable-baseline-v1.0.1 && git clean -fd
   ```
+
+---
+
+## 1.0 What was Fixed & Added in Version 1.0.5
+
+1. **Persistent Server Caching (Offline Mode Availability):**
+   * Stored parsed server configurations directly in persistent storage (`AppSettingsDataStore`).
+   * When opening the app without internet connectivity, the server list is immediately loaded and populated from cache. The app does not display an empty list or block the user with network errors.
+2. **Network State Auto-Recovery (Real-time Reconnect):**
+   * Registered system default network callback in `MainViewModel`.
+   * When internet connectivity is restored (e.g. mobile data or Wi-Fi turned on), the subscription is automatically refreshed in the background without needing to restart the app.
+3. **Resilient Server List Retention:**
+   * If an online refresh encounters a network timeout or connection error, existing cached servers are strictly preserved and never cleared or wiped.
+4. **Dynamic Version Name in Settings Screen:**
+   * `SettingsScreen.kt` dynamically retrieves `versionName` at runtime via `PackageManager`, accurately displaying the current release (1.0.5) instead of a hardcoded string.
 
 ---
 

@@ -33,6 +33,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalContext
+import android.os.Build
+import android.content.pm.PackageManager
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -59,6 +62,20 @@ fun SettingsScreen(
 ) {
     val isFa = currentLanguage == AppLanguage.PERSIAN
     val scrollState = rememberScrollState()
+
+    val context = LocalContext.current
+    val appVersion = remember(context) {
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                context.packageManager.getPackageInfo(context.packageName, PackageManager.PackageInfoFlags.of(0)).versionName
+            } else {
+                @Suppress("DEPRECATION")
+                context.packageManager.getPackageInfo(context.packageName, 0).versionName
+            }
+        } catch (_: Exception) {
+            "1.0.5"
+        } ?: "1.0.5"
+    }
 
     Column(
         modifier = Modifier
@@ -212,7 +229,7 @@ fun SettingsScreen(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
-                text = "Tunnix · Version 1.0.1",
+                text = "Tunnix · Version $appVersion",
                 color = TunnixStyle.glass.textMuted,
                 fontSize = 13.sp
             )

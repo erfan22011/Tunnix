@@ -7,8 +7,10 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
 import com.tunnix.core.models.AppLanguage
 import com.tunnix.core.models.DownloadSettingsConfig
+import com.tunnix.core.models.ServerConfig
 import com.tunnix.core.models.ThemeMode
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -20,7 +22,8 @@ data class AppPreferences(
     val selectedServerId: String = "",
     val language: AppLanguage = AppLanguage.PERSIAN,
     val themeMode: ThemeMode = ThemeMode.DARK,
-    val downloadSettings: DownloadSettingsConfig = DownloadSettingsConfig.DEFAULT
+    val downloadSettings: DownloadSettingsConfig = DownloadSettingsConfig.DEFAULT,
+    val cachedServers: List<ServerConfig> = emptyList()
 )
 
 class AppSettingsDataStore(private val context: Context) {
@@ -33,6 +36,7 @@ class AppSettingsDataStore(private val context: Context) {
         val LANGUAGE = stringPreferencesKey("key_language")
         val THEME_MODE = stringPreferencesKey("key_theme_mode")
         val DOWNLOAD_SETTINGS = stringPreferencesKey("key_download_settings")
+        val CACHED_SERVERS = stringPreferencesKey("key_cached_servers")
     }
 
     val preferencesFlow: Flow<AppPreferences> = context.dataStore.data.map { prefs ->
@@ -58,12 +62,25 @@ class AppSettingsDataStore(private val context: Context) {
             DownloadSettingsConfig.DEFAULT
         }
 
+        val serversJson = prefs[Keys.CACHED_SERVERS]
+        val cachedServers = if (!serversJson.isNullOrBlank()) {
+            try {
+                val listType = object : TypeToken<List<ServerConfig>>() {}.type
+                gson.fromJson<List<ServerConfig>>(serversJson, listType) ?: emptyList()
+            } catch (_: Exception) {
+                emptyList()
+            }
+        } else {
+            emptyList()
+        }
+
         AppPreferences(
             subscriptionUrl = subUrl,
             selectedServerId = serverId,
             language = AppLanguage.fromCode(langCode),
             themeMode = try { ThemeMode.valueOf(themeStr) } catch (_: Exception) { ThemeMode.DARK },
-            downloadSettings = dlConfig
+            downloadSettings = dlConfig,
+            cachedServers = cachedServers
         )
     }
 
@@ -73,6 +90,11 @@ class AppSettingsDataStore(private val context: Context) {
 
     suspend fun saveSelectedServerId(id: String) {
         context.dataStore.edit { it[Keys.SELECTED_SERVER_ID] = id }
+    }
+
+    suspend fun saveCachedServers(servers: List<ServerConfig>) {
+        val json = gson.toJson(servers)
+        context.dataStore.edit { it[Keys.CACHED_SERVERS] = json }
     }
 
     suspend fun saveLanguage(language: AppLanguage) {
@@ -92,6 +114,7 @@ class AppSettingsDataStore(private val context: Context) {
         context.dataStore.edit {
             it.remove(Keys.SUBSCRIPTION_URL)
             it.remove(Keys.SELECTED_SERVER_ID)
+            it.remove(Keys.CACHED_SERVERS)
         }
     }
 }
