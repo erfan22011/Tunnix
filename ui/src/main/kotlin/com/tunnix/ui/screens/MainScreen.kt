@@ -91,12 +91,6 @@ fun MainScreen(
         is VpnState.Disconnected -> if (isFa) "آماده اتصال" else "Ready to connect"
     }
 
-    val statusSubtitle = when (vpnState) {
-        is VpnState.Connecting -> if (isFa) "در انتظار پاسخ. می‌توانید لغو کنید." else "Waiting for a response. You can cancel."
-        is VpnState.Error -> vpnState.message
-        else -> null
-    }
-
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -145,42 +139,34 @@ fun MainScreen(
 
         Spacer(modifier = Modifier.height(20.dp))
 
-        // Status Header (Dot + Text)
-        Column(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalAlignment = Alignment.CenterHorizontally
+        // Status Header (Dot + Text) - Fixed single-line height, zero layout shift
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(26.dp),
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(
-                    modifier = Modifier
-                        .size(8.dp)
-                        .clip(CircleShape)
-                        .background(statusDotColor)
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                AnimatedContent(
-                    targetState = statusTitle,
-                    transitionSpec = {
-                        fadeIn(animationSpec = tween(220, easing = FastOutSlowInEasing)) togetherWith
-                        fadeOut(animationSpec = tween(180, easing = FastOutSlowInEasing))
-                    },
-                    label = "statusTitleAnim"
-                ) { title ->
-                    Text(
-                        text = title,
-                        color = if (isConnected) EmeraldGreen else TunnixStyle.glass.textPrimary,
-                        fontSize = 17.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                }
-            }
-
-            if (!statusSubtitle.isNullOrBlank()) {
-                Spacer(modifier = Modifier.height(4.dp))
+            Box(
+                modifier = Modifier
+                    .size(8.dp)
+                    .clip(CircleShape)
+                    .background(statusDotColor)
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            AnimatedContent(
+                targetState = statusTitle,
+                transitionSpec = {
+                    fadeIn(animationSpec = tween(220, easing = FastOutSlowInEasing)) togetherWith
+                    fadeOut(animationSpec = tween(180, easing = FastOutSlowInEasing))
+                },
+                label = "statusTitleAnim"
+            ) { title ->
                 Text(
-                    text = statusSubtitle,
-                    color = TunnixStyle.glass.textSecondary,
-                    fontSize = 13.sp
+                    text = title,
+                    color = if (isConnected) EmeraldGreen else TunnixStyle.glass.textPrimary,
+                    fontSize = 17.sp,
+                    fontWeight = FontWeight.SemiBold
                 )
             }
         }

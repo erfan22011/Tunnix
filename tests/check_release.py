@@ -1,6 +1,5 @@
 import urllib.request
 import json
-import sys
 
 def check():
     url = "https://api.github.com/repos/erfan22011/Tunnix/actions/runs?per_page=5"
@@ -13,11 +12,10 @@ def check():
                 print(f"Run {r['id']} | {r['name']} | Event: {r['event']} | Status: {r['status']} | Conclusion: {r['conclusion']} | SHA: {r['head_sha'][:7]}")
             
             # Find the latest release run
-            rel_runs = [r for r in runs if "Release" in r['name'] and r['head_sha'][:7] == "593eb47"]
+            rel_runs = [r for r in runs if "Release" in r['name']]
             if rel_runs:
                 target = rel_runs[0]
-                print(f"\n--- Tracking Target Release Run {target['id']} ---")
-                # get jobs
+                print(f"\n--- Tracking Target Release Run {target['id']} (SHA: {target['head_sha'][:7]}) ---")
                 req_jobs = urllib.request.Request(f"https://api.github.com/repos/erfan22011/Tunnix/actions/runs/{target['id']}/jobs", headers={"User-Agent": "Tunnix-Release-Monitor"})
                 with urllib.request.urlopen(req_jobs, timeout=10) as resp_jobs:
                     data_jobs = json.loads(resp_jobs.read().decode())

@@ -31,9 +31,14 @@
 3. **Smooth Interactive Card Selection & Ripple:**
    * Added `animateColorAsState` and `animateDpAsState` to `ServerItemCard.kt` for card border color, border width, and rack icon background.
    * Selection checkmark now scales and fades smoothly with `AnimatedVisibility(enter = fadeIn + scaleIn, exit = fadeOut + scaleOut)`.
-4. **Smooth Power Button & Connection Indicator:**
+4. **Smooth Power Button with Spring Bounce & Fluid Halo:**
    * `LiquidPowerButton` active color transitions smoothly with `animateColorAsState(tween(350, FastOutSlowInEasing))`.
-   * Connection status dot in `MainScreen` morphs smoothly with `animateColorAsState(tween(300, FastOutSlowInEasing))`.
+   * Added tactile spring press bounce (`Spring.DampingRatioMediumBouncy`) compressing by 8% on touch with rubbery rebound.
+   * Multi-ring spinning comet halo and pulsing glow in connecting state.
+5. **Zero Layout Shift (CLS) on Connection:**
+   * Anchored status header in `MainScreen.kt` to a fixed single-line `height(26.dp)`. Removed redundant multi-line subtitle that previously pushed the power button and list down on tap. All UI elements remain 100% stationary.
+6. **Dark Mode Screen Transition Fix:**
+   * Root `Surface` in `MainActivity.kt` explicitly wrapped with `TunnixTheme` and colored `ObsidianBackground`. Eliminated white background flash between screens.
 
 ---
 
