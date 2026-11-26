@@ -18,6 +18,8 @@ import com.google.gson.JsonParser
 object XrayConfigValidator {
 
     const val MAX_CONFIG_JSON_BYTES = 512 * 1024 // 512 Kilobytes
+    private val FORBIDDEN_FIELDS = setOf("command", "exec", "script", "browserforwarder", "reverse")
+    private val ALLOWED_OUTBOUND_PROTOCOLS = setOf("vless", "vmess", "trojan", "shadowsocks", "freedom", "blackhole", "direct")
 
     data class ValidationResult(
         val isValid: Boolean,
@@ -44,6 +46,9 @@ object XrayConfigValidator {
         if (!rootElement.isJsonObject) {
             return ValidationResult(false, listOf("Root element must be a JSON Object"))
         }
+
+        // 0. Check for forbidden/dangerous execution fields
+        checkForbiddenFields(rootElement, issues)
 
         val root = rootElement.asJsonObject
 
@@ -98,6 +103,8 @@ object XrayConfigValidator {
                     foundProxyOutbound = true
                     if (protocol.isNullOrBlank()) {
                         issues.add("Proxy outbound missing or blank 'protocol'")
+                    } else if (protocol.lowercase() !in ALLOWED_OUTBOUND_PROTOCOLS) {
+                        issues.add("Proxy outbound has unsupported protocol '$protocol'")
                     }
 
                     // Validate protocol-specific settings if present
@@ -278,5 +285,22 @@ object XrayConfigValidator {
         if (!elem.isJsonPrimitive) return null
         val prim = elem.asJsonPrimitive
         return if (prim.isString) prim.asString else null
+    }
+
+    private fun checkForbiddenFields(element: JsonElement, issues: MutableList<String>) {
+        if (element.isJsonObject) {
+            val obj = element.asJsonObject
+            for (key in obj.keySet()) {
+                if (key.lowercase() in FORBIDDEN_FIELDS) {
+                    issues.add("Forbidden dangerous field '$key' rejected")
+                }
+                checkForbiddenFields(obj.get(key), issues)
+            }
+        } else if (element.isJsonArray) {
+            val arr = element.asJsonArray
+            for (i in 0 until arr.size()) {
+                checkForbiddenFields(arr.get(i), issues)
+            }
+        }
     }
 }
