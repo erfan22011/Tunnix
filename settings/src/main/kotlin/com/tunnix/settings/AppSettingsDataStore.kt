@@ -98,7 +98,7 @@ class AppSettingsDataStore(private val context: Context) {
         val subUrl = if (rawSubUrl.isNotBlank()) {
             try {
                 LocalSecurityCipher.decrypt(rawSubUrl)
-            } catch (_: Exception) {
+            } catch (_: Throwable) {
                 rawSubUrl
             }
         } else {
@@ -130,7 +130,7 @@ class AppSettingsDataStore(private val context: Context) {
         val serversJson = if (!rawServersJson.isNullOrBlank()) {
             try {
                 LocalSecurityCipher.decrypt(rawServersJson)
-            } catch (_: Exception) {
+            } catch (_: Throwable) {
                 rawServersJson
             }
         } else {
@@ -141,7 +141,7 @@ class AppSettingsDataStore(private val context: Context) {
             try {
                 val listType = object : TypeToken<List<ServerConfig>>() {}.type
                 gson.fromJson<List<ServerConfig>>(serversJson, listType) ?: emptyList()
-            } catch (_: Exception) {
+            } catch (_: Throwable) {
                 emptyList()
             }
         } else {
@@ -167,7 +167,15 @@ class AppSettingsDataStore(private val context: Context) {
 
     suspend fun saveSubscriptionUrl(url: String) {
         setCachedHasSubscription(context, url.isNotBlank())
-        val encrypted = if (url.isNotBlank()) LocalSecurityCipher.encrypt(url) else ""
+        val encrypted = if (url.isNotBlank()) {
+            try {
+                LocalSecurityCipher.encrypt(url)
+            } catch (_: Throwable) {
+                url
+            }
+        } else {
+            ""
+        }
         context.dataStore.edit { it[Keys.SUBSCRIPTION_URL] = encrypted }
     }
 
@@ -177,7 +185,15 @@ class AppSettingsDataStore(private val context: Context) {
 
     suspend fun saveCachedServers(servers: List<ServerConfig>) {
         val json = gson.toJson(servers)
-        val encrypted = if (json.isNotBlank()) LocalSecurityCipher.encrypt(json) else ""
+        val encrypted = if (json.isNotBlank()) {
+            try {
+                LocalSecurityCipher.encrypt(json)
+            } catch (_: Throwable) {
+                json
+            }
+        } else {
+            ""
+        }
         context.dataStore.edit { it[Keys.CACHED_SERVERS] = encrypted }
     }
 

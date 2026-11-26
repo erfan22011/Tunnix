@@ -114,18 +114,20 @@ fun TunnixTheme(
     val view = LocalView.current
     if (!view.isInEditMode) {
         SideEffect {
-            val activity = findActivity(view.context)
-            val window = activity?.window
-            if (window != null) {
-                val insetsController = WindowCompat.getInsetsController(window, view)
-                val barColor = if (isDark) ObsidianBackground.toArgb() else PearlBackground.toArgb()
+            try {
+                val activity = findActivity(view.context)
+                val window = activity?.window
+                if (window != null) {
+                    val insetsController = WindowCompat.getInsetsController(window, view)
+                    val barColor = if (isDark) ObsidianBackground.toArgb() else PearlBackground.toArgb()
 
-                window.statusBarColor = barColor
-                window.navigationBarColor = barColor
+                    window.statusBarColor = barColor
+                    window.navigationBarColor = barColor
 
-                insetsController.isAppearanceLightStatusBars = !isDark
-                insetsController.isAppearanceLightNavigationBars = !isDark
-            }
+                    insetsController.isAppearanceLightStatusBars = !isDark
+                    insetsController.isAppearanceLightNavigationBars = !isDark
+                }
+            } catch (_: Throwable) {}
         }
     }
 

@@ -13,51 +13,35 @@ object CentralConfigRepository {
 
     private val gson: Gson = GsonBuilder().setPrettyPrinting().create()
 
-    // Encrypted snapshot of default DownloadSettings
-    // Plaintext JSON:
-    // {
-    //   "xPaddingBytes": "100-1000",
-    //   "downloadSettings": {
-    //     "address": "ipapp.genus.ir",
-    //     "port": 2053,
-    //     "network": "xhttp",
-    //     "security": "tls",
-    //     "tlsSettings": {
-    //       "serverName": "ovapp.genus.ir",
-    //       "alpn": ["h2"],
-    //       "fingerprint": "chrome"
-    //     },
-    //     "xhttpSettings": {
-    //       "host": "ovapp.genus.ir",
-    //       "path": "/xhttp"
-    //     }
-    //   }
-    // }
     private var encryptedConfigPayload: String = ""
 
     private var currentConfig: DownloadSettingsConfig = DownloadSettingsConfig.DEFAULT
 
     init {
-        // Encrypt default configuration on initialization
-        val defaultJson = gson.toJson(DownloadSettingsConfig.DEFAULT)
-        encryptedConfigPayload = SecureConfigCipher.encrypt(defaultJson)
+        // Encrypt default configuration on initialization safely
+        try {
+            val defaultJson = gson.toJson(DownloadSettingsConfig.DEFAULT)
+            encryptedConfigPayload = SecureConfigCipher.encrypt(defaultJson)
+        } catch (_: Throwable) {
+            encryptedConfigPayload = ""
+        }
     }
 
     /**
      * Retrieves the active DownloadSettingsConfig.
-     * Decrypts the secure payload if needed.
+     * Decrypts the secure payload if needed with complete error safety.
      */
     @Synchronized
     fun getConfig(): DownloadSettingsConfig {
         if (encryptedConfigPayload.isNotEmpty()) {
-            val decryptedJson = SecureConfigCipher.decrypt(encryptedConfigPayload)
             try {
+                val decryptedJson = SecureConfigCipher.decrypt(encryptedConfigPayload)
                 val parsed = gson.fromJson(decryptedJson, DownloadSettingsConfig::class.java)
                 if (parsed != null) {
                     currentConfig = parsed
                 }
-            } catch (_: Exception) {
-                // fallback to currentConfig
+            } catch (_: Throwable) {
+                // Safely fallback to currentConfig
             }
         }
         return currentConfig
@@ -69,8 +53,10 @@ object CentralConfigRepository {
     @Synchronized
     fun updateConfig(newConfig: DownloadSettingsConfig) {
         currentConfig = newConfig
-        val json = gson.toJson(newConfig)
-        encryptedConfigPayload = SecureConfigCipher.encrypt(json)
+        try {
+            val json = gson.toJson(newConfig)
+            encryptedConfigPayload = SecureConfigCipher.encrypt(json)
+        } catch (_: Throwable) {}
     }
 
     /**

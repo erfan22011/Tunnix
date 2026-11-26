@@ -25,8 +25,8 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // Set native window canvas and system bars dynamically before setContent
-        // to prevent any black/white flash during cold and warm startup
+        // Set native window system bars and canvas dynamically before setContent
+        // to prevent any color mismatch during cold and warm startup
         try {
             val cachedTheme = AppSettingsDataStore.getCachedThemeMode(this)
             val isDark = cachedTheme == ThemeMode.DARK
