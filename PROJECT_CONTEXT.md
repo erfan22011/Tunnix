@@ -7,8 +7,12 @@
 ## 1. Release History & Baselines
 
 * **App Name:** Tunnix (`com.tunnix.app`)
-* **Current Active Release:** `1.0.3` (`versionCode = 4`, `versionName = "1.0.3"`)
+* **Current Active Release:** `1.0.5` (`versionCode = 6`, `versionName = "1.0.5"`)
+* **Pending Release:** `1.0.6` (`versionCode = 7`, `versionName = "1.0.6"`)
 * **Previous Stable Releases:**
+  * `1.0.5` (`versionCode = 6`, `versionName = "1.0.5"`, commit: `ed11f05`)
+  * `1.0.4` (`versionCode = 5`, `versionName = "1.0.4"`, commit: `57234ff`)
+  * `1.0.3` (`versionCode = 4`, `versionName = "1.0.3"`, commit: `e7ea730`)
   * `1.0.2` (`versionCode = 3`, `versionName = "1.0.2"`, commit: `39c3f9e`)
   * `1.0.1` (`versionCode = 2`, `versionName = "1.0.1"`, commit: `f670292`)
 * **Permanent Baseline Tag:** `stable-baseline-v1.0.1`
@@ -17,6 +21,23 @@
   ```bash
   git checkout main && git reset --hard stable-baseline-v1.0.1 && git clean -fd
   ```
+
+---
+
+## 1.0 What was Fixed & Added in Version 1.0.6 (Pending User Approval)
+
+1. **Domestic Traffic Direct Routing (Bypass Iranian Websites & Services):**
+   * Added `bypassIran: Boolean = true` setting in `AppSettingsDataStore`.
+   * Integrated into Xray-core config generation (`XrayConfigGenerator.kt`):
+     - DNS routing: routes `regexp:.*\\.ir$`, `domain:ir`, `geosite:ir`, and major Iranian services (Digikala, Snapp, Divar, Aparat, Rubika, Eitaa, Bale, Telewebion, Varzesh3, banks, PSPs) directly to `localhost`.
+     - Routing rules: top-priority `direct` rule for Iranian domains, regex patterns, and `geoip:ir`.
+     - `domainStrategy` set to `IPIfNonMatch` to resolve and check against `geoip:ir` if domain doesn't match directly.
+     - Sockets opened by freedom (`direct`) outbound are protected via `VpnService.protect()`, bypassing the TUN interface and routing directly via the physical interface. Zero packets touch the VPN tunnel.
+   * Instant direct routing on connection: because the config is loaded at tunnel start, no initial packets leak to the proxy.
+   * Real-time tunnel update: toggling `bypassIran` in Settings restarts the active tunnel immediately with the updated routing config without requiring manual reconnect.
+2. **Settings UI Integration:**
+   * Added Section 3 GlassCard toggle with switch control, Persian and English descriptions.
+   * Fallback and runtime version updated to `1.0.6`.
 
 ---
 

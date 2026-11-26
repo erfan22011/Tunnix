@@ -83,7 +83,9 @@ class MainActivity : ComponentActivity() {
                     downloadSettings = uiState.downloadSettings,
                     onSaveDownloadSettings = { viewModel.saveDownloadSettings(it) },
                     onChangeSubscription = { viewModel.clearSubscription() },
-                    hasSubscription = uiState.hasSubscription
+                    hasSubscription = uiState.hasSubscription,
+                    bypassIran = uiState.bypassIran,
+                    onBypassIranChange = { viewModel.changeBypassIran(it) }
                 )
             }
         }

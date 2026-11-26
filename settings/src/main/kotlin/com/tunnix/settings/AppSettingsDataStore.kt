@@ -3,6 +3,7 @@ package com.tunnix.settings
 import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
@@ -23,7 +24,8 @@ data class AppPreferences(
     val language: AppLanguage = AppLanguage.PERSIAN,
     val themeMode: ThemeMode = ThemeMode.DARK,
     val downloadSettings: DownloadSettingsConfig = DownloadSettingsConfig.DEFAULT,
-    val cachedServers: List<ServerConfig> = emptyList()
+    val cachedServers: List<ServerConfig> = emptyList(),
+    val bypassIran: Boolean = true
 )
 
 class AppSettingsDataStore(private val context: Context) {
@@ -37,6 +39,7 @@ class AppSettingsDataStore(private val context: Context) {
         val THEME_MODE = stringPreferencesKey("key_theme_mode")
         val DOWNLOAD_SETTINGS = stringPreferencesKey("key_download_settings")
         val CACHED_SERVERS = stringPreferencesKey("key_cached_servers")
+        val BYPASS_IRAN = booleanPreferencesKey("key_bypass_iran")
     }
 
     val preferencesFlow: Flow<AppPreferences> = context.dataStore.data.map { prefs ->
@@ -74,14 +77,21 @@ class AppSettingsDataStore(private val context: Context) {
             emptyList()
         }
 
+        val bypassIran = prefs[Keys.BYPASS_IRAN] ?: true
+
         AppPreferences(
             subscriptionUrl = subUrl,
             selectedServerId = serverId,
             language = AppLanguage.fromCode(langCode),
             themeMode = try { ThemeMode.valueOf(themeStr) } catch (_: Exception) { ThemeMode.DARK },
             downloadSettings = dlConfig,
-            cachedServers = cachedServers
+            cachedServers = cachedServers,
+            bypassIran = bypassIran
         )
+    }
+
+    suspend fun saveBypassIran(enabled: Boolean) {
+        context.dataStore.edit { it[Keys.BYPASS_IRAN] = enabled }
     }
 
     suspend fun saveSubscriptionUrl(url: String) {

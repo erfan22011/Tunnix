@@ -25,7 +25,8 @@ object XrayConfigGenerator {
         server: ServerConfig,
         socksPort: Int = DEFAULT_SOCKS_PORT,
         httpPort: Int = DEFAULT_HTTP_PORT,
-        customDownloadSettings: DownloadSettingsConfig? = null
+        customDownloadSettings: DownloadSettingsConfig? = null,
+        bypassIran: Boolean = true
     ): String {
         val root = JsonObject()
 
@@ -57,6 +58,32 @@ object XrayConfigGenerator {
         // 4. DNS configuration
         val dns = JsonObject().apply {
             val serversArray = JsonArray().apply {
+                if (bypassIran) {
+                    val directDns = JsonObject().apply {
+                        addProperty("address", "localhost")
+                        val domainsArray = JsonArray().apply {
+                            add("regexp:.*\\.ir$")
+                            add("domain:ir")
+                            add("geosite:ir")
+                            add("domain:digikala.com")
+                            add("domain:aparat.com")
+                            add("domain:telewebion.com")
+                            add("domain:varzesh3.com")
+                            add("domain:torob.com")
+                            add("domain:eitaa.com")
+                            add("domain:rubika.ir")
+                            add("domain:bale.ai")
+                            add("domain:splus.ir")
+                            add("domain:shaparak.ir")
+                            add("domain:filimo.com")
+                            add("domain:namava.ir")
+                            add("domain:snapp.ir")
+                            add("domain:divar.ir")
+                        }
+                        add("domains", domainsArray)
+                    }
+                    add(directDns)
+                }
                 add("1.1.1.1")
                 add("8.8.8.8")
                 add("localhost")
@@ -67,7 +94,7 @@ object XrayConfigGenerator {
 
         // 5. Routing rules
         val routing = JsonObject().apply {
-            addProperty("domainStrategy", "AsIs")
+            addProperty("domainStrategy", if (bypassIran) "IPIfNonMatch" else "AsIs")
             val rulesArray = JsonArray().apply {
                 // Private IPs -> Direct
                 val privateRule = JsonObject().apply {
@@ -82,6 +109,86 @@ object XrayConfigGenerator {
                     add("ip", ipArray)
                 }
                 add(privateRule)
+
+                // Iranian Domestic Traffic -> Direct (Instant bypass, never passes through VPN tunnel)
+                if (bypassIran) {
+                    val iranDomainRule = JsonObject().apply {
+                        addProperty("type", "field")
+                        addProperty("outboundTag", "direct")
+                        val domainArray = JsonArray().apply {
+                            add("regexp:.*\\.ir$")
+                            add("domain:ir")
+                            add("geosite:ir")
+                            add("domain:digikala.com")
+                            add("domain:aparat.com")
+                            add("domain:telewebion.com")
+                            add("domain:snapp.ir")
+                            add("domain:divar.ir")
+                            add("domain:torob.com")
+                            add("domain:eitaa.com")
+                            add("domain:rubika.ir")
+                            add("domain:bale.ai")
+                            add("domain:splus.ir")
+                            add("domain:shaparak.ir")
+                            add("domain:cafebazaar.ir")
+                            add("domain:myket.ir")
+                            add("domain:filimo.com")
+                            add("domain:namava.ir")
+                            add("domain:varzesh3.com")
+                            add("domain:sheypoor.com")
+                            add("domain:tci.ir")
+                            add("domain:mci.ir")
+                            add("domain:irancell.ir")
+                            add("domain:rightel.ir")
+                            add("domain:bankmellat.ir")
+                            add("domain:bmi.ir")
+                            add("domain:bsi.ir")
+                            add("domain:tejaratbank.ir")
+                            add("domain:bpi.ir")
+                            add("domain:enbank.ir")
+                            add("domain:sb24.ir")
+                            add("domain:rbc.ir")
+                            add("domain:refah-bank.ir")
+                            add("domain:postbank.ir")
+                            add("domain:sina-bank.ir")
+                            add("domain:shahr-bank.ir")
+                            add("domain:sarmayeh.com")
+                            add("domain:karafarinbank.ir")
+                            add("domain:middleeastbank.ir")
+                            add("domain:tourismbank.ir")
+                            add("domain:ttbank.ir")
+                            add("domain:maskan-bank.ir")
+                            add("domain:edbi.ir")
+                            add("domain:bki.ir")
+                            add("domain:sanatmadan.ir")
+                            add("domain:ansarbank.ir")
+                            add("domain:ba24.ir")
+                            add("domain:asanpardakht.ir")
+                            add("domain:sadadpsp.ir")
+                            add("domain:sep.ir")
+                            add("domain:bpp.ir")
+                            add("domain:pep.co.ir")
+                            add("domain:sepehrpay.com")
+                            add("domain:irankish.com")
+                            add("domain:pna.co.ir")
+                            add("domain:sayancard.ir")
+                            add("domain:fcp.ir")
+                            add("domain:dotic.ir")
+                        }
+                        add("domain", domainArray)
+                    }
+                    add(iranDomainRule)
+
+                    val iranGeoIpRule = JsonObject().apply {
+                        addProperty("type", "field")
+                        addProperty("outboundTag", "direct")
+                        val ipArray = JsonArray().apply {
+                            add("geoip:ir")
+                        }
+                        add("ip", ipArray)
+                    }
+                    add(iranGeoIpRule)
+                }
 
                 // All other TCP/UDP traffic -> Proxy
                 val proxyRule = JsonObject().apply {

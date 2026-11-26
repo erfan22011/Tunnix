@@ -58,6 +58,8 @@ fun SettingsScreen(
     onThemeChange: (ThemeMode) -> Unit,
     downloadSettings: DownloadSettingsConfig = DownloadSettingsConfig.DEFAULT,
     onSaveDownloadSettings: (DownloadSettingsConfig) -> Unit = {},
+    bypassIran: Boolean = true,
+    onBypassIranChange: (Boolean) -> Unit = {},
     onNavigateBack: () -> Unit
 ) {
     val isFa = currentLanguage == AppLanguage.PERSIAN
@@ -73,8 +75,8 @@ fun SettingsScreen(
                 context.packageManager.getPackageInfo(context.packageName, 0).versionName
             }
         } catch (_: Exception) {
-            "1.0.5"
-        } ?: "1.0.5"
+            "1.0.6"
+        } ?: "1.0.6"
     }
 
     Column(
@@ -218,6 +220,58 @@ fun SettingsScreen(
                         fontSize = 15.sp
                     )
                 }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        // Section 3: Bypass Iranian Websites & Services
+        Text(
+            text = if (isFa) "مسیریابی هوشمند ترافیک داخلی" else "Domestic Traffic Routing",
+            color = TunnixStyle.glass.textSecondary,
+            fontSize = 14.sp
+        )
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        GlassCard(modifier = Modifier.fillMaxWidth()) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onBypassIranChange(!bypassIran) }
+                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
+                    Text(
+                        text = if (isFa) "دور زدن سایت‌های ایرانی (Bypass Iran)" else "Bypass Iranian Sites",
+                        color = TunnixStyle.glass.textPrimary,
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = if (isFa) 
+                            "سایت‌ها، بانک‌ها و خدمات ایرانی بدون عبور از سرور فیلترشکن، به صورت مستقیم و با حداکثر سرعت باز می‌شوند."
+                        else 
+                            "Domestic Iranian websites, banks, and services will route directly without passing through the VPN server.",
+                        color = TunnixStyle.glass.textMuted,
+                        fontSize = 12.sp,
+                        lineHeight = 17.sp
+                    )
+                }
+
+                Switch(
+                    checked = bypassIran,
+                    onCheckedChange = { onBypassIranChange(it) },
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = EmeraldGreen,
+                        checkedTrackColor = EmeraldGreen.copy(alpha = 0.35f),
+                        uncheckedThumbColor = TunnixStyle.glass.textMuted,
+                        uncheckedTrackColor = TunnixStyle.glass.cardBorder.copy(alpha = 0.2f)
+                    )
+                )
             }
         }
 
