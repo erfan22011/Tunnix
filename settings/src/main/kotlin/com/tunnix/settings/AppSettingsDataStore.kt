@@ -96,8 +96,11 @@ class AppSettingsDataStore(private val context: Context) {
         val subUrl = if (rawSubUrl.isNotBlank()) {
             try {
                 LocalSecurityCipher.decrypt(rawSubUrl)
+            } catch (e: SecurityException) {
+                // If encrypted data is corrupted or tampered, reset to empty (fail-safe)
+                ""
             } catch (_: Throwable) {
-                rawSubUrl
+                ""
             }
         } else {
             ""
@@ -128,8 +131,10 @@ class AppSettingsDataStore(private val context: Context) {
         val serversJson = if (!rawServersJson.isNullOrBlank()) {
             try {
                 LocalSecurityCipher.decrypt(rawServersJson)
+            } catch (e: SecurityException) {
+                null
             } catch (_: Throwable) {
-                rawServersJson
+                null
             }
         } else {
             null

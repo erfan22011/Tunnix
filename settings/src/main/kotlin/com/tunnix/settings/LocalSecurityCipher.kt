@@ -4,14 +4,12 @@ import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import java.nio.charset.StandardCharsets
 import java.security.KeyStore
-import java.security.MessageDigest
 import java.security.SecureRandom
 import java.util.Base64
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
-import javax.crypto.spec.SecretKeySpec
 
 /**
  * Provides hardware-backed authenticated AES-256-GCM encryption for sensitive local storage
@@ -20,9 +18,9 @@ import javax.crypto.spec.SecretKeySpec
  * Guarantees:
  * 1. Authenticated Encryption with Associated Data (AEAD) via AES/GCM/NoPadding.
  * 2. Dynamic, cryptographically secure 12-byte IV for every encryption operation.
- * 3. 100% Backwards compatibility: automatically migrates unencrypted legacy data from v1.0.6.
- * 4. Controlled error handling with SecurityException on authentication failure.
- * 5. Robust deterministic fallback to prevent cross-session decryption failures.
+ * 3. Fail-closed security: Throws SecurityException on encryption or authentication failures.
+ * 4. Zero hardcoded secrets in repository.
+ * 5. Backwards compatibility: migrates unencrypted legacy data gracefully.
  */
 object LocalSecurityCipher {
 
@@ -33,9 +31,12 @@ object LocalSecurityCipher {
     private const val GCM_TAG_LENGTH = 128
     const val ENC_PREFIX = "ENC:GCM:"
 
-    private var jvmFallbackKey: SecretKey? = null
+    // For unit testing environments where AndroidKeyStore service is not available
+    var testKeyOverride: SecretKey? = null
 
     private fun getOrCreateKey(): SecretKey {
+        testKeyOverride?.let { return it }
+
         return try {
             val keyStore = KeyStore.getInstance(ANDROID_KEYSTORE).apply { load(null) }
             if (!keyStore.containsAlias(KEY_ALIAS)) {
@@ -57,19 +58,9 @@ object LocalSecurityCipher {
 
             (keyStore.getKey(KEY_ALIAS, null) as? SecretKey)
                 ?: (keyStore.getEntry(KEY_ALIAS, null) as? KeyStore.SecretKeyEntry)?.secretKey
-                ?: throw IllegalStateException("Key retrieval returned null")
-        } catch (_: Throwable) {
-            // Robust deterministic fallback when AndroidKeyStore native provider is not available
-            // Using deterministic salt guarantees identical key across app restarts (zero data corruption)
-            synchronized(this) {
-                if (jvmFallbackKey == null) {
-                    val fallbackSeed = "TunnixDeterministicStorageKeySalt2026#HardwareAES#Master"
-                    val sha = MessageDigest.getInstance("SHA-256")
-                    val keyBytes = sha.digest(fallbackSeed.toByteArray(StandardCharsets.UTF_8))
-                    jvmFallbackKey = SecretKeySpec(keyBytes, "AES")
-                }
-                jvmFallbackKey!!
-            }
+                ?: throw SecurityException("Key retrieval from AndroidKeyStore returned null")
+        } catch (e: Exception) {
+            throw SecurityException("AndroidKeyStore hardware security module is unavailable or failed", e)
         }
     }
 
@@ -77,10 +68,11 @@ object LocalSecurityCipher {
      * Encrypts plaintext using Authenticated AES-256-GCM.
      * Generates a unique 12-byte IV for every call.
      * Output format: "ENC:GCM:<Base64(IV + Ciphertext + Tag)>"
+     * Fail-closed: Throws SecurityException on failure.
      */
     fun encrypt(plainText: String): String {
         if (plainText.isEmpty()) return ""
-        return try {
+        try {
             val secretKey = getOrCreateKey()
             val cipher = Cipher.getInstance(AES_GCM_TRANSFORMATION)
             val iv = ByteArray(GCM_IV_LENGTH)
@@ -90,22 +82,20 @@ object LocalSecurityCipher {
             cipher.init(Cipher.ENCRYPT_MODE, secretKey, spec)
             val cipherBytes = cipher.doFinal(plainText.toByteArray(StandardCharsets.UTF_8))
 
-            // Prepend IV to ciphertext
             val combined = ByteArray(iv.size + cipherBytes.size)
             System.arraycopy(iv, 0, combined, 0, iv.size)
             System.arraycopy(cipherBytes, 0, combined, iv.size, cipherBytes.size)
 
             val b64 = Base64.getEncoder().encodeToString(combined)
-            "$ENC_PREFIX$b64"
-        } catch (_: Throwable) {
-            plainText
+            return "$ENC_PREFIX$b64"
+        } catch (e: Exception) {
+            throw SecurityException("Failed to encrypt sensitive data", e)
         }
     }
 
     /**
      * Decrypts ciphertext and authenticates GCM tag.
-     * Fully backwards compatible:
-     * - If input starts with "ENC:GCM:", decrypts with AES-GCM.
+     * - If input starts with "ENC:GCM:", decrypts with AES-GCM; throws SecurityException on tamper.
      * - If input does NOT start with "ENC:GCM:", returns legacy data directly for automatic migration.
      */
     fun decrypt(data: String): String {
