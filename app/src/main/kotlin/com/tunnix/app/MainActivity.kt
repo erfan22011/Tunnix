@@ -1,9 +1,7 @@
 package com.tunnix.app
 
 import android.app.Activity
-import android.os.Build
 import android.os.Bundle
-import android.view.WindowInsetsController
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
@@ -29,28 +27,14 @@ class MainActivity : ComponentActivity() {
 
         // Set native window canvas and system bars dynamically before setContent
         // to prevent any black/white flash during cold and warm startup
-        val cachedTheme = AppSettingsDataStore.getCachedThemeMode(this)
-        val isDark = cachedTheme == ThemeMode.DARK
-        val bgArgb = if (isDark) 0xFF0A0E17.toInt() else 0xFFF4F6F9.toInt()
-        window.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(bgArgb))
-        window.decorView.setBackgroundColor(bgArgb)
-        window.statusBarColor = bgArgb
-        window.navigationBarColor = bgArgb
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            val controller = window.insetsController
-            if (controller != null) {
-                val appearance = if (!isDark) {
-                    WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS or WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS
-                } else {
-                    0
-                }
-                controller.setSystemBarsAppearance(
-                    appearance,
-                    WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS or WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS
-                )
-            }
-        }
+        try {
+            val cachedTheme = AppSettingsDataStore.getCachedThemeMode(this)
+            val isDark = cachedTheme == ThemeMode.DARK
+            val bgArgb = if (isDark) 0xFF0A0E17.toInt() else 0xFFF4F6F9.toInt()
+            window.decorView.setBackgroundColor(bgArgb)
+            window.statusBarColor = bgArgb
+            window.navigationBarColor = bgArgb
+        } catch (_: Throwable) {}
 
         setContent {
             val uiState by viewModel.uiState.collectAsState()
@@ -87,36 +71,38 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = TunnixStyle.glass.background
                 ) {
-                    TunnixNavigation(
-                        language = uiState.language,
-                        onLanguageChange = { viewModel.changeLanguage(it) },
-                        themeMode = uiState.themeMode,
-                        onThemeChange = { viewModel.changeTheme(it) },
-                        vpnState = uiState.vpnState,
-                        trafficStats = uiState.trafficStats,
-                        servers = uiState.servers,
-                        selectedServer = uiState.selectedServer,
-                        onSelectServer = { viewModel.selectServer(it) },
-                        onToggleConnection = {
-                            val vpnIntent = viewModel.checkVpnPermission(this)
-                            if (vpnIntent != null) {
-                                vpnPermissionLauncher.launch(vpnIntent)
-                            } else {
-                                viewModel.toggleConnection(this)
-                            }
-                        },
-                        onSubmitSubscription = { urlOrToken ->
-                            viewModel.loadSubscription(urlOrToken)
-                        },
-                        isLoading = uiState.isLoading,
-                        errorMessage = uiState.errorMessage,
-                        downloadSettings = uiState.downloadSettings,
-                        onSaveDownloadSettings = { viewModel.saveDownloadSettings(it) },
-                        onChangeSubscription = { viewModel.clearSubscription() },
-                        hasSubscription = uiState.hasSubscription,
-                        bypassIran = uiState.bypassIran,
-                        onBypassIranChange = { viewModel.changeBypassIran(it) }
-                    )
+                    if (uiState.isInitialized) {
+                        TunnixNavigation(
+                            language = uiState.language,
+                            onLanguageChange = { viewModel.changeLanguage(it) },
+                            themeMode = uiState.themeMode,
+                            onThemeChange = { viewModel.changeTheme(it) },
+                            vpnState = uiState.vpnState,
+                            trafficStats = uiState.trafficStats,
+                            servers = uiState.servers,
+                            selectedServer = uiState.selectedServer,
+                            onSelectServer = { viewModel.selectServer(it) },
+                            onToggleConnection = {
+                                val vpnIntent = viewModel.checkVpnPermission(this)
+                                if (vpnIntent != null) {
+                                    vpnPermissionLauncher.launch(vpnIntent)
+                                } else {
+                                    viewModel.toggleConnection(this)
+                                }
+                            },
+                            onSubmitSubscription = { urlOrToken ->
+                                viewModel.loadSubscription(urlOrToken)
+                            },
+                            isLoading = uiState.isLoading,
+                            errorMessage = uiState.errorMessage,
+                            downloadSettings = uiState.downloadSettings,
+                            onSaveDownloadSettings = { viewModel.saveDownloadSettings(it) },
+                            onChangeSubscription = { viewModel.clearSubscription() },
+                            hasSubscription = uiState.hasSubscription,
+                            bypassIran = uiState.bypassIran,
+                            onBypassIranChange = { viewModel.changeBypassIran(it) }
+                        )
+                    }
                 }
             }
         }

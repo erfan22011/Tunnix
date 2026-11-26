@@ -40,13 +40,11 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Clear
 import androidx.compose.material.icons.rounded.ContentPaste
 import androidx.compose.material.icons.rounded.DarkMode
 import androidx.compose.material.icons.rounded.ErrorOutline
 import androidx.compose.material.icons.rounded.LightMode
-import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.VpnKey
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -57,7 +55,6 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -99,7 +96,6 @@ fun RedeemScreen(
     var inputText by remember { mutableStateOf("") }
     var localError by remember { mutableStateOf<String?>(null) }
     var isInputFocused by remember { mutableStateOf(false) }
-    var clipboardSuggestion by remember { mutableStateOf<String?>(null) }
 
     val clipboardManager = LocalClipboardManager.current
     val focusManager = LocalFocusManager.current
@@ -107,23 +103,6 @@ fun RedeemScreen(
 
     val isFa = currentLanguage == AppLanguage.PERSIAN
     val isDark = currentTheme == ThemeMode.DARK
-
-    // Check clipboard on launch for potential sub link or redeem code
-    LaunchedEffect(Unit) {
-        try {
-            val clip = clipboardManager.getText()?.text?.trim()
-            if (!clip.isNullOrBlank() && (clip.startsWith("http://", ignoreCase = true) ||
-                        clip.startsWith("https://", ignoreCase = true) ||
-                        clip.startsWith("vless://", ignoreCase = true) ||
-                        clip.startsWith("vmess://", ignoreCase = true) ||
-                        clip.startsWith("ss://", ignoreCase = true) ||
-                        clip.contains("tootcloud", ignoreCase = true) ||
-                        clip.contains("pelqexa", ignoreCase = true) ||
-                        (clip.length in 12..36 && !clip.contains(" ")))) {
-                clipboardSuggestion = clip
-            }
-        } catch (_: Exception) {}
-    }
 
     // Ambient Breathing Animation for Logo Glow
     val infiniteTransition = rememberInfiniteTransition(label = "redeem_ambient")
@@ -344,48 +323,6 @@ fun RedeemScreen(
 
                 Spacer(modifier = Modifier.height(34.dp))
 
-                // Smart Clipboard Helper Pill
-                AnimatedVisibility(
-                    visible = !clipboardSuggestion.isNullOrBlank() && inputText.isBlank(),
-                    enter = expandVertically(tween(240)) + fadeIn(tween(240)),
-                    exit = shrinkVertically(tween(180)) + fadeOut(tween(180))
-                ) {
-                    clipboardSuggestion?.let { clipText ->
-                        Box(
-                            modifier = Modifier
-                                .padding(bottom = 14.dp)
-                                .clip(RoundedCornerShape(18.dp))
-                                .background(EmeraldGreen.copy(alpha = 0.12f))
-                                .border(1.dp, EmeraldGreen.copy(alpha = 0.35f), RoundedCornerShape(18.dp))
-                                .clickable {
-                                    inputText = clipText
-                                    clipboardSuggestion = null
-                                    localError = null
-                                }
-                                .padding(horizontal = 16.dp, vertical = 9.dp)
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.Center
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Rounded.ContentPaste,
-                                    contentDescription = null,
-                                    tint = EmeraldGreen,
-                                    modifier = Modifier.size(16.dp)
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(
-                                    text = if (isFa) "📋 لینک در حافظه شناسایی شد (برای درج لمس کنید)" else "📋 Link found in clipboard (tap to paste)",
-                                    color = EmeraldGreen,
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.SemiBold
-                                )
-                            }
-                        }
-                    }
-                }
-
                 // Ultra-soft Glassmorphic Input Container
                 Box(
                     modifier = Modifier
@@ -496,11 +433,12 @@ fun RedeemScreen(
                                                 interactionSource = pasteInteractionSource,
                                                 indication = null
                                             ) {
-                                                clipboardManager.getText()?.text?.let { clipText ->
-                                                    inputText = clipText.trim()
-                                                    clipboardSuggestion = null
-                                                    localError = null
-                                                }
+                                                try {
+                                                    clipboardManager.getText()?.text?.let { clipText ->
+                                                        inputText = clipText.trim()
+                                                        localError = null
+                                                    }
+                                                } catch (_: Throwable) {}
                                             }
                                             .padding(horizontal = 12.dp, vertical = 7.dp),
                                         contentAlignment = Alignment.Center
@@ -637,24 +575,12 @@ fun RedeemScreen(
                             strokeWidth = 2.5.dp
                         )
                     } else {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Rounded.CheckCircle,
-                                contentDescription = null,
-                                tint = Color.Black,
-                                modifier = Modifier.size(20.dp)
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = if (isFa) "تایید و دریافت سرورها" else "Submit & Fetch Servers",
-                                fontSize = 16.sp,
-                                fontWeight = FontWeight.ExtraBold,
-                                color = Color.Black
-                            )
-                        }
+                        Text(
+                            text = if (isFa) "تایید و دریافت سرورها" else "Submit & Fetch Servers",
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = Color.Black
+                        )
                     }
                 }
             }
@@ -670,15 +596,8 @@ fun RedeemScreen(
                     .background(TunnixStyle.glass.glassBorder.copy(alpha = 0.10f))
                     .padding(horizontal = 14.dp, vertical = 7.dp)
             ) {
-                Icon(
-                    imageVector = Icons.Rounded.Lock,
-                    contentDescription = null,
-                    tint = TunnixStyle.glass.textMuted,
-                    modifier = Modifier.size(14.dp)
-                )
-                Spacer(modifier = Modifier.width(6.dp))
                 Text(
-                    text = if (isFa) "اتصال مستقیم و ذخیره‌سازی محلی رمزنگاری‌شده" else "Direct connection & encrypted local storage",
+                    text = if (isFa) "🔒 اتصال مستقیم و ذخیره‌سازی محلی رمزنگاری‌شده" else "🔒 Direct connection & encrypted local storage",
                     color = TunnixStyle.glass.textMuted,
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Normal
