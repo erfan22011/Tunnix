@@ -56,7 +56,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private val cachedTheme = AppSettingsDataStore.getCachedThemeMode(application)
     private val cachedLang = AppSettingsDataStore.getCachedLanguage(application)
-    private val _uiState = MutableStateFlow(UiState(themeMode = cachedTheme, language = cachedLang))
+    private val cachedHasSub = AppSettingsDataStore.getCachedHasSubscription(application)
+    private val _uiState = MutableStateFlow(
+        UiState(
+            themeMode = cachedTheme,
+            language = cachedLang,
+            hasSubscription = cachedHasSub,
+            isInitialized = true
+        )
+    )
     val uiState: StateFlow<UiState> = _uiState.asStateFlow()
 
     init {

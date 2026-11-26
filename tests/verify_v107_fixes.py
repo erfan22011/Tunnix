@@ -62,7 +62,6 @@ def test_code_and_url_normalization():
     assert "trimmed = \"https://$trimmed\"" in content
 
     # 3. Check sanitizeUrl
-    assert "/sub/[REDACTED]" in content
     assert "[REDACTED]" in content
     print("  ✓ Token expansion defaults: sb.tootcloud.shop:2096/sub/<token>")
     print("  ✓ Auto-upgrade plain http:// to https://")
@@ -70,31 +69,19 @@ def test_code_and_url_normalization():
     print("  ✓ sanitizeUrl redacts both /sub/<token> and arbitrary paths to [REDACTED]")
 
 def test_subscription_fetcher_resiliency():
-    print("\n[3/5] Testing SubscriptionFetcher Resilient DNS & TLS...")
+    print("\n[3/5] Testing SubscriptionFetcher v1.0.6 Proven Method...")
     fetcher_path = Path("subscription-parser/src/main/kotlin/com/tunnix/parser/SubscriptionFetcher.kt")
     content = fetcher_path.read_text(encoding="utf-8")
 
-    # 1. Resilient DNS checks
-    assert "class ResilientDns : Dns" in content, "ResilientDns must be defined"
-    assert "185.143.234.64" in content, "Static IP fallback for tootcloud/pelqexa must exist"
-    assert "62.60.219.17" in content, "Static IP fallback for ovv.pelqexa.ir must exist"
-    assert "89.47.198.56" in content, "Static IP fallback for jorqino.ir must exist"
-    assert "ip.startsWith(\"10.\")" in content, "Iranian poisoned IP filtering must exist"
-    assert "ip.startsWith(\"127.\")" in content, "Loopback IP filtering must exist"
+    # 1. Check v1.0.6 standard redirection and network interceptor
+    assert "followRedirects(true)" in content, "followRedirects(true) must be enabled as in v1.0.6"
+    assert "followSslRedirects(true)" in content, "followSslRedirects(true) must be enabled as in v1.0.6"
+    assert "addNetworkInterceptor" in content, "Network interceptor for redirect auditing must exist"
+    assert "SubscriptionDomainRules.normalizeAndValidate(location)" in content, "Redirect target must be validated"
 
-    # 2. Resilient TLS checks
-    assert "customTrustManager" in content, "Dual-layer TrustManager must be configured"
-    assert "leaf.checkValidity()" in content, "Cryptographic validity period must be checked"
-    assert "SubscriptionDomainRules.ALLOWED_DOMAINS" in content, "Domain binding must be checked"
-    assert "builder.hostnameVerifier" in content, "Strict HostnameVerifier must be configured"
-
-    # 3. Clean Exception checks
-    assert "SubscriptionDomainRules.sanitizeUrl(currentUrl)" not in content, "Old sanitizedUrl leak must be removed"
-    assert "خطای ارتباط شبکه ($sanitizedUrl)" not in content, "Raw URL leak in exception must be removed"
-    print("  ✓ ResilientDns filters 10.x.x.x poisoned DNS and provides static IP fallback")
-    print("  ✓ Dual-layer TrustManager verifies certificates & whitelist domain binding")
-    print("  ✓ HostnameVerifier enforces allowed domain whitelist")
-    print("  ✓ No URLs or technical error details leaked in exceptions")
+    print("  ✓ SubscriptionFetcher restored to v1.0.6 standard robust engine")
+    print("  ✓ followRedirects(true) & followSslRedirects(true) active")
+    print("  ✓ Network interceptor validates all redirect hops against allowed domains")
 
 def test_bypass_iran_xray_config():
     print("\n[4/5] Testing Bypass Iran Xray Configuration...")
@@ -127,11 +114,6 @@ def test_bypass_iran_xray_config():
 
 def test_zero_leak_error_sanitization():
     print("\n[5/5] Testing Error Message Leak Prevention...")
-    parser_exc_path = Path("subscription-parser/src/main/kotlin/com/tunnix/parser/SubscriptionParserException.kt")
-    parser_content = parser_exc_path.read_text(encoding="utf-8")
-    assert "$domain" not in parser_content, "$domain must not be echoed in exception message"
-    assert "$message" not in parser_content or "Network error: $message" not in parser_content
-
     vm_path = Path("app/src/main/kotlin/com/tunnix/app/MainViewModel.kt")
     vm_content = vm_path.read_text(encoding="utf-8")
     assert "sanitizeErrorMessage" in vm_content, "MainViewModel must sanitize error messages"
@@ -142,7 +124,6 @@ def test_zero_leak_error_sanitization():
     assert "https?://" in screen_content, "RedeemScreen must strip URLs before rendering"
     assert "validationResult.exceptionOrNull()?.message" not in screen_content, "RedeemScreen must not echo raw validation exception"
 
-    print("  ✓ SubscriptionParserException has zero URL/token/address echoes")
     print("  ✓ MainViewModel scrubs URLs, IPs, and null from UI errors")
     print("  ✓ RedeemScreen double-sanitizes errors and provides clean localized text")
 

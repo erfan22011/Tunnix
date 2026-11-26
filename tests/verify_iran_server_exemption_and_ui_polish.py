@@ -77,7 +77,7 @@ with open(r"f:\antigravity\app2\app\src\main\kotlin\com\tunnix\app\MainViewModel
 
 assert "private val cachedTheme = AppSettingsDataStore.getCachedThemeMode(application)" in vm_code, "MainViewModel must retrieve cachedTheme synchronously!"
 assert "private val cachedLang = AppSettingsDataStore.getCachedLanguage(application)" in vm_code, "MainViewModel must retrieve cachedLang synchronously!"
-assert "UiState(themeMode = cachedTheme, language = cachedLang)" in vm_code, "UiState must initialize with cachedTheme to prevent black flash!"
+assert "themeMode = cachedTheme" in vm_code and "language = cachedLang" in vm_code, "UiState must initialize with cachedTheme to prevent black flash!"
 
 with open(r"f:\antigravity\app2\app\src\main\kotlin\com\tunnix\app\MainActivity.kt", "r", encoding="utf-8") as f:
     act_code = f.read()

@@ -86,38 +86,36 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = TunnixStyle.glass.background
                 ) {
-                    if (uiState.isInitialized) {
-                        TunnixNavigation(
-                            language = uiState.language,
-                            onLanguageChange = { viewModel.changeLanguage(it) },
-                            themeMode = uiState.themeMode,
-                            onThemeChange = { viewModel.changeTheme(it) },
-                            vpnState = uiState.vpnState,
-                            trafficStats = uiState.trafficStats,
-                            servers = uiState.servers,
-                            selectedServer = uiState.selectedServer,
-                            onSelectServer = { viewModel.selectServer(it) },
-                            onToggleConnection = {
-                                val vpnIntent = viewModel.checkVpnPermission(this)
-                                if (vpnIntent != null) {
-                                    vpnPermissionLauncher.launch(vpnIntent)
-                                } else {
-                                    viewModel.toggleConnection(this)
-                                }
-                            },
-                            onSubmitSubscription = { urlOrToken ->
-                                viewModel.loadSubscription(urlOrToken)
-                            },
-                            isLoading = uiState.isLoading,
-                            errorMessage = uiState.errorMessage,
-                            downloadSettings = uiState.downloadSettings,
-                            onSaveDownloadSettings = { viewModel.saveDownloadSettings(it) },
-                            onChangeSubscription = { viewModel.clearSubscription() },
-                            hasSubscription = uiState.hasSubscription,
-                            bypassIran = uiState.bypassIran,
-                            onBypassIranChange = { viewModel.changeBypassIran(it) }
-                        )
-                    }
+                    TunnixNavigation(
+                        language = uiState.language,
+                        onLanguageChange = { viewModel.changeLanguage(it) },
+                        themeMode = uiState.themeMode,
+                        onThemeChange = { viewModel.changeTheme(it) },
+                        vpnState = uiState.vpnState,
+                        trafficStats = uiState.trafficStats,
+                        servers = uiState.servers,
+                        selectedServer = uiState.selectedServer,
+                        onSelectServer = { viewModel.selectServer(it) },
+                        onToggleConnection = {
+                            val vpnIntent = viewModel.checkVpnPermission(this)
+                            if (vpnIntent != null) {
+                                vpnPermissionLauncher.launch(vpnIntent)
+                            } else {
+                                viewModel.toggleConnection(this)
+                            }
+                        },
+                        onSubmitSubscription = { urlOrToken ->
+                            viewModel.loadSubscription(urlOrToken)
+                        },
+                        isLoading = uiState.isLoading,
+                        errorMessage = uiState.errorMessage,
+                        downloadSettings = uiState.downloadSettings,
+                        onSaveDownloadSettings = { viewModel.saveDownloadSettings(it) },
+                        onChangeSubscription = { viewModel.clearSubscription() },
+                        hasSubscription = uiState.hasSubscription,
+                        bypassIran = uiState.bypassIran,
+                        onBypassIranChange = { viewModel.changeBypassIran(it) }
+                    )
                 }
             }
         }

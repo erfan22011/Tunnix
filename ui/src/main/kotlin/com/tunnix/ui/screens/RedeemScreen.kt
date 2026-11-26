@@ -5,6 +5,7 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
@@ -31,6 +32,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
@@ -39,7 +41,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Clear
 import androidx.compose.material.icons.rounded.ContentPaste
 import androidx.compose.material.icons.rounded.DarkMode
+import androidx.compose.material.icons.rounded.ErrorOutline
 import androidx.compose.material.icons.rounded.LightMode
+import androidx.compose.material.icons.rounded.VpnKey
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -57,6 +61,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -94,23 +99,24 @@ fun RedeemScreen(
     val focusManager = LocalFocusManager.current
 
     val isFa = currentLanguage == AppLanguage.PERSIAN
+    val isDark = currentTheme == ThemeMode.DARK
 
     // Ambient Breathing Animation for Logo Glow
     val infiniteTransition = rememberInfiniteTransition(label = "redeem_ambient")
     val pulseScale by infiniteTransition.animateFloat(
-        initialValue = 0.95f,
-        targetValue = 1.08f,
+        initialValue = 0.96f,
+        targetValue = 1.06f,
         animationSpec = infiniteRepeatable(
-            animation = tween(2600, easing = FastOutSlowInEasing),
+            animation = tween(2800, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Reverse
         ),
         label = "pulse_scale"
     )
     val glowAlpha by infiniteTransition.animateFloat(
-        initialValue = 0.22f,
-        targetValue = 0.48f,
+        initialValue = 0.20f,
+        targetValue = 0.44f,
         animationSpec = infiniteRepeatable(
-            animation = tween(2600, easing = FastOutSlowInEasing),
+            animation = tween(2800, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Reverse
         ),
         label = "glow_alpha"
@@ -120,12 +126,19 @@ fun RedeemScreen(
     val buttonInteractionSource = remember { MutableInteractionSource() }
     val isButtonPressed by buttonInteractionSource.collectIsPressedAsState()
     val buttonScale by animateFloatAsState(
-        targetValue = if (isButtonPressed) 0.96f else 1f,
+        targetValue = if (isButtonPressed) 0.95f else 1f,
         animationSpec = spring(
             dampingRatio = Spring.DampingRatioMediumBouncy,
             stiffness = Spring.StiffnessLow
         ),
         label = "button_scale"
+    )
+
+    // Smooth Ambient Border Width and Glow on Focus
+    val animatedBorderWidth by animateDpAsState(
+        targetValue = if (isInputFocused) 1.5.dp else 1.dp,
+        animationSpec = tween(220, easing = FastOutSlowInEasing),
+        label = "border_width"
     )
 
     // Animated Border Color for Input Card
@@ -134,6 +147,40 @@ fun RedeemScreen(
         animationSpec = tween(250, easing = FastOutSlowInEasing),
         label = "border_color"
     )
+
+    // Card Glass Color & Gradient
+    val cardBackground = if (isDark) {
+        Brush.verticalGradient(
+            colors = listOf(
+                Color(0xFF141D2B),
+                Color(0xFF0F1722)
+            )
+        )
+    } else {
+        Brush.verticalGradient(
+            colors = listOf(
+                Color(0xFFFFFFFF),
+                Color(0xFFF8FAFC)
+            )
+        )
+    }
+
+    val cardBorderBrush = if (isInputFocused) {
+        Brush.horizontalGradient(
+            listOf(
+                EmeraldGreen,
+                Color(0xFF69F0AE),
+                EmeraldGreen
+            )
+        )
+    } else {
+        Brush.linearGradient(
+            listOf(
+                TunnixStyle.glass.glassBorder.copy(alpha = 0.8f),
+                TunnixStyle.glass.glassBorder.copy(alpha = 0.35f)
+            )
+        )
+    }
 
     Box(
         modifier = Modifier
@@ -150,13 +197,19 @@ fun RedeemScreen(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Theme toggle button with tactile touch feedback
+            // Theme toggle button with soft spring feedback
+            val themeInteractionSource = remember { MutableInteractionSource() }
+            val isThemePressed by themeInteractionSource.collectIsPressedAsState()
+            val themeScale by animateFloatAsState(if (isThemePressed) 0.92f else 1f, label = "theme_scale")
+
             IconButton(
                 onClick = onThemeToggle,
                 modifier = Modifier
+                    .graphicsLayer { scaleX = themeScale; scaleY = themeScale }
                     .clip(CircleShape)
                     .background(TunnixStyle.glass.cardGlass)
-                    .border(1.dp, TunnixStyle.glass.glassBorder, CircleShape)
+                    .border(1.dp, TunnixStyle.glass.glassBorder, CircleShape),
+                interactionSource = themeInteractionSource
             ) {
                 Icon(
                     imageVector = if (TunnixStyle.glass.isDark) Icons.Rounded.LightMode else Icons.Rounded.DarkMode,
@@ -166,11 +219,19 @@ fun RedeemScreen(
             }
 
             // Language Pill Button ("فا" or "EN")
+            val langInteractionSource = remember { MutableInteractionSource() }
+            val isLangPressed by langInteractionSource.collectIsPressedAsState()
+            val langScale by animateFloatAsState(if (isLangPressed) 0.92f else 1f, label = "lang_scale")
+
             Box(
                 modifier = Modifier
-                    .clip(RoundedCornerShape(14.dp))
+                    .graphicsLayer { scaleX = langScale; scaleY = langScale }
+                    .clip(RoundedCornerShape(16.dp))
                     .background(EmeraldGreen)
-                    .clickable {
+                    .clickable(
+                        interactionSource = langInteractionSource,
+                        indication = null
+                    ) {
                         val nextLang = if (isFa) AppLanguage.ENGLISH else AppLanguage.PERSIAN
                         onLanguageChange(nextLang)
                     }
@@ -186,7 +247,7 @@ fun RedeemScreen(
             }
         }
 
-        // Center Content with ambient glass aesthetics
+        // Center Content with soft ambient aesthetics
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -196,11 +257,11 @@ fun RedeemScreen(
             // Hexagonal Logo with Soft Radial Breathing Glow
             Box(
                 contentAlignment = Alignment.Center,
-                modifier = Modifier.size(120.dp)
+                modifier = Modifier.size(124.dp)
             ) {
                 Box(
                     modifier = Modifier
-                        .size(116.dp)
+                        .size(120.dp)
                         .scale(pulseScale)
                         .clip(CircleShape)
                         .background(
@@ -235,18 +296,24 @@ fun RedeemScreen(
                 textAlign = TextAlign.Center
             )
 
-            Spacer(modifier = Modifier.height(44.dp))
+            Spacer(modifier = Modifier.height(40.dp))
 
-            // Glassmorphic Input Container
+            // Soft Glassmorphic Input Container
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(20.dp))
-                    .background(TunnixStyle.glass.cardGlass)
+                    .shadow(
+                        elevation = if (isInputFocused) 12.dp else 4.dp,
+                        shape = RoundedCornerShape(24.dp),
+                        spotColor = if (isInputFocused) EmeraldGreen.copy(alpha = 0.35f) else Color.Black.copy(alpha = 0.15f),
+                        ambientColor = if (isInputFocused) EmeraldGreen.copy(alpha = 0.15f) else Color.Transparent
+                    )
+                    .clip(RoundedCornerShape(24.dp))
+                    .background(cardBackground)
                     .border(
-                        width = if (isInputFocused) 1.5.dp else 1.dp,
-                        color = animatedBorderColor,
-                        shape = RoundedCornerShape(20.dp)
+                        width = animatedBorderWidth,
+                        brush = cardBorderBrush,
+                        shape = RoundedCornerShape(24.dp)
                     )
             ) {
                 OutlinedTextField(
@@ -260,13 +327,83 @@ fun RedeemScreen(
                         .onFocusChanged { isInputFocused = it.isFocused },
                     placeholder = {
                         Text(
-                            text = if (isFa) "کد یا لینک سابسکریپشن" else "Redeem code",
+                            text = if (isFa) "کد یا لینک سابسکریپشن" else "Redeem code or sub link",
                             color = TunnixStyle.glass.textMuted,
                             fontSize = 15.sp
                         )
                     },
+                    leadingIcon = {
+                        Box(
+                            modifier = Modifier
+                                .padding(start = 12.dp, end = 4.dp)
+                                .size(36.dp)
+                                .clip(CircleShape)
+                                .background(
+                                    if (isInputFocused) EmeraldGreen.copy(alpha = 0.18f)
+                                    else TunnixStyle.glass.glassBorder.copy(alpha = 0.2f)
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.VpnKey,
+                                contentDescription = null,
+                                tint = if (isInputFocused) EmeraldGreen else TunnixStyle.glass.textSecondary,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    },
+                    trailingIcon = {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(end = 8.dp)
+                        ) {
+                            if (inputText.isNotEmpty()) {
+                                IconButton(
+                                    onClick = {
+                                        inputText = ""
+                                        localError = null
+                                    }
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.Clear,
+                                        contentDescription = "Clear",
+                                        tint = TunnixStyle.glass.textSecondary
+                                    )
+                                }
+                            } else {
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .background(EmeraldGreen.copy(alpha = 0.14f))
+                                        .clickable {
+                                            clipboardManager.getText()?.text?.let { clipText ->
+                                                inputText = clipText.trim()
+                                            }
+                                        }
+                                        .padding(horizontal = 10.dp, vertical = 6.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(
+                                            imageVector = Icons.Rounded.ContentPaste,
+                                            contentDescription = "Paste",
+                                            tint = EmeraldGreen,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text(
+                                            text = if (isFa) "جای‌گذاری" else "Paste",
+                                            color = EmeraldGreen,
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.SemiBold
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    },
                     singleLine = true,
-                    shape = RoundedCornerShape(20.dp),
+                    shape = RoundedCornerShape(24.dp),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = Color.Transparent,
                         unfocusedBorderColor = Color.Transparent,
@@ -276,31 +413,6 @@ fun RedeemScreen(
                         unfocusedTextColor = TunnixStyle.glass.textPrimary,
                         cursorColor = EmeraldGreen
                     ),
-                    trailingIcon = {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            if (inputText.isNotEmpty()) {
-                                IconButton(onClick = { inputText = "" }) {
-                                    Icon(
-                                        imageVector = Icons.Rounded.Clear,
-                                        contentDescription = "Clear",
-                                        tint = TunnixStyle.glass.textSecondary
-                                    )
-                                }
-                            } else {
-                                IconButton(onClick = {
-                                    clipboardManager.getText()?.text?.let { clipText ->
-                                        inputText = clipText.trim()
-                                    }
-                                }) {
-                                    Icon(
-                                        imageVector = Icons.Rounded.ContentPaste,
-                                        contentDescription = "Paste",
-                                        tint = EmeraldGreen
-                                    )
-                                }
-                            }
-                        }
-                    },
                     keyboardOptions = KeyboardOptions(
                         keyboardType = KeyboardType.Uri,
                         imeAction = ImeAction.Done
@@ -314,7 +426,7 @@ fun RedeemScreen(
                 )
             }
 
-            // Animated Error Display (Smooth slide & fade)
+            // Soft Pill Error Display
             val activeError = (localError ?: errorMessage)?.let { rawErr ->
                 var sanitized = rawErr.replace(Regex("https?://[^\\s)\\]]+"), "")
                     .replace(Regex("\\b\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}(?::\\d+)?\\b"), "")
@@ -335,20 +447,40 @@ fun RedeemScreen(
                 exit = shrinkVertically(tween(180)) + fadeOut(tween(180))
             ) {
                 if (!activeError.isNullOrBlank()) {
-                    Text(
-                        text = activeError,
-                        color = Color(0xFFFF5252),
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Medium,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.padding(top = 10.dp)
-                    )
+                    Box(
+                        modifier = Modifier
+                            .padding(top = 14.dp)
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(Color(0xFFFF5252).copy(alpha = 0.10f))
+                            .border(1.dp, Color(0xFFFF5252).copy(alpha = 0.28f), RoundedCornerShape(16.dp))
+                            .padding(horizontal = 16.dp, vertical = 10.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.ErrorOutline,
+                                contentDescription = null,
+                                tint = Color(0xFFFF5252),
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = activeError,
+                                color = Color(0xFFFF5252),
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Medium,
+                                textAlign = TextAlign.Center
+                            )
+                        }
+                    }
                 }
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(26.dp))
 
-            // Submit Button with Tactile Spring Interaction
+            // Soft Liquid Submit Button with Spring Touch Feedback
             Button(
                 onClick = {
                     focusManager.clearFocus()
@@ -360,8 +492,14 @@ fun RedeemScreen(
                     .graphicsLayer {
                         scaleX = buttonScale
                         scaleY = buttonScale
-                    },
-                shape = RoundedCornerShape(18.dp),
+                    }
+                    .shadow(
+                        elevation = if (inputText.isNotBlank()) 10.dp else 4.dp,
+                        shape = RoundedCornerShape(22.dp),
+                        spotColor = EmeraldGreen.copy(alpha = 0.45f),
+                        ambientColor = EmeraldGreen.copy(alpha = 0.2f)
+                    ),
+                shape = RoundedCornerShape(22.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = EmeraldGreen,
                     contentColor = Color.Black

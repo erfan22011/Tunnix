@@ -36,6 +36,7 @@ class AppSettingsDataStore(private val context: Context) {
         private const val FAST_CACHE_PREFS = "tunnix_fast_cache"
         private const val KEY_CACHED_THEME = "fast_cached_theme_mode"
         private const val KEY_CACHED_LANG = "fast_cached_language"
+        private const val KEY_CACHED_HAS_SUB = "fast_cached_has_sub"
 
         fun getCachedThemeMode(context: Context): ThemeMode {
             val prefs = context.getSharedPreferences(FAST_CACHE_PREFS, Context.MODE_PRIVATE)
@@ -55,6 +56,11 @@ class AppSettingsDataStore(private val context: Context) {
             return AppLanguage.fromCode(code ?: AppLanguage.PERSIAN.code)
         }
 
+        fun getCachedHasSubscription(context: Context): Boolean {
+            val prefs = context.getSharedPreferences(FAST_CACHE_PREFS, Context.MODE_PRIVATE)
+            return prefs.getBoolean(KEY_CACHED_HAS_SUB, false)
+        }
+
         fun setCachedThemeMode(context: Context, themeMode: ThemeMode) {
             context.getSharedPreferences(FAST_CACHE_PREFS, Context.MODE_PRIVATE)
                 .edit()
@@ -66,6 +72,13 @@ class AppSettingsDataStore(private val context: Context) {
             context.getSharedPreferences(FAST_CACHE_PREFS, Context.MODE_PRIVATE)
                 .edit()
                 .putString(KEY_CACHED_LANG, language.code)
+                .apply()
+        }
+
+        fun setCachedHasSubscription(context: Context, hasSub: Boolean) {
+            context.getSharedPreferences(FAST_CACHE_PREFS, Context.MODE_PRIVATE)
+                .edit()
+                .putBoolean(KEY_CACHED_HAS_SUB, hasSub)
                 .apply()
         }
     }
@@ -153,6 +166,7 @@ class AppSettingsDataStore(private val context: Context) {
     }
 
     suspend fun saveSubscriptionUrl(url: String) {
+        setCachedHasSubscription(context, url.isNotBlank())
         val encrypted = if (url.isNotBlank()) LocalSecurityCipher.encrypt(url) else ""
         context.dataStore.edit { it[Keys.SUBSCRIPTION_URL] = encrypted }
     }
@@ -183,6 +197,7 @@ class AppSettingsDataStore(private val context: Context) {
     }
 
     suspend fun clearSubscription() {
+        setCachedHasSubscription(context, false)
         context.dataStore.edit {
             it.remove(Keys.SUBSCRIPTION_URL)
             it.remove(Keys.SELECTED_SERVER_ID)
