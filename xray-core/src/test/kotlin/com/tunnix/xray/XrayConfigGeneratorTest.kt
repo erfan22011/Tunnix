@@ -177,6 +177,24 @@ class XrayConfigGeneratorTest {
     }
 
     @Test
+    fun `test default inbounds do not include unauthenticated socks or http ports`() {
+        val server = ServerConfig(
+            id = "server-sec-1",
+            name = "Test",
+            address = "ovv.pelqexa.ir",
+            port = 2053,
+            protocol = ProtocolType.VLESS
+        )
+        val jsonString = XrayConfigGenerator.generate(server)
+        val root = JsonParser.parseString(jsonString).asJsonObject
+        val inbounds = root.getAsJsonArray("inbounds")
+
+        assertTrue("Must contain TUN inbound", inbounds.any { it.asJsonObject.get("protocol").asString == "tun" })
+        assertFalse("Must NOT contain socks inbound by default", inbounds.any { it.asJsonObject.get("protocol").asString == "socks" })
+        assertFalse("Must NOT contain http inbound by default", inbounds.any { it.asJsonObject.get("protocol").asString == "http" })
+    }
+
+    @Test
     fun `test bypassIran routing rules without external dat files and AsIs domainStrategy`() {
         val server = ServerConfig(
             id = "test-iran-bypass",

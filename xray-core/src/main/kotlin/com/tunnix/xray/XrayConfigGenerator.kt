@@ -14,8 +14,9 @@ object XrayConfigGenerator {
 
     private val gson: Gson = GsonBuilder().setPrettyPrinting().create()
 
-    const val DEFAULT_SOCKS_PORT = 10808
-    const val DEFAULT_HTTP_PORT = 10809
+    // Inbounds default to 0 (disabled) to prevent unauthenticated SOCKS5/HTTP port exposure on 127.0.0.1
+    const val DEFAULT_SOCKS_PORT = 0
+    const val DEFAULT_HTTP_PORT = 0
 
     /**
      * Generates a complete, production-ready Xray-core JSON configuration
@@ -638,7 +639,7 @@ object XrayConfigGenerator {
             try {
                 java.net.ServerSocket(0, 1, java.net.InetAddress.getByName("127.0.0.1")).use { it.localPort }
             } catch (_: Exception) {
-                preferredPort
+                0
             }
         }
     }
