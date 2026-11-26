@@ -3,10 +3,11 @@ package com.tunnix.ui.navigation
 import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.Modifier
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
@@ -19,6 +20,7 @@ import com.tunnix.core.models.VpnState
 import com.tunnix.ui.screens.MainScreen
 import com.tunnix.ui.screens.RedeemScreen
 import com.tunnix.ui.screens.SettingsScreen
+import com.tunnix.ui.theme.TunnixStyle
 import com.tunnix.ui.theme.TunnixTheme
 
 @Composable
@@ -62,21 +64,20 @@ fun TunnixNavigation(
         NavHost(
             navController = navController,
             startDestination = startDestination,
+            modifier = Modifier
+                .fillMaxSize()
+                .background(TunnixStyle.glass.background),
             enterTransition = {
-                slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Start, tween(320, easing = FastOutSlowInEasing)) +
-                fadeIn(tween(320, easing = FastOutSlowInEasing))
+                slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Start, tween(300, easing = FastOutSlowInEasing))
             },
             exitTransition = {
-                slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Start, tween(320, easing = FastOutSlowInEasing)) +
-                fadeOut(tween(220, easing = FastOutSlowInEasing))
+                slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Start, tween(300, easing = FastOutSlowInEasing))
             },
             popEnterTransition = {
-                slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.End, tween(320, easing = FastOutSlowInEasing)) +
-                fadeIn(tween(320, easing = FastOutSlowInEasing))
+                slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.End, tween(300, easing = FastOutSlowInEasing))
             },
             popExitTransition = {
-                slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.End, tween(320, easing = FastOutSlowInEasing)) +
-                fadeOut(tween(220, easing = FastOutSlowInEasing))
+                slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.End, tween(300, easing = FastOutSlowInEasing))
             }
         ) {
             composable("redeem") {

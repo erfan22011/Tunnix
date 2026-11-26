@@ -13,6 +13,8 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import com.tunnix.ui.navigation.TunnixNavigation
+import com.tunnix.ui.theme.TunnixStyle
+import com.tunnix.ui.theme.TunnixTheme
 
 class MainActivity : ComponentActivity() {
 
@@ -31,8 +33,15 @@ class MainActivity : ComponentActivity() {
                 }
             }
 
-            Surface(modifier = Modifier.fillMaxSize()) {
-                TunnixNavigation(
+            TunnixTheme(
+                themeMode = uiState.themeMode,
+                language = uiState.language
+            ) {
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = TunnixStyle.glass.background
+                ) {
+                    TunnixNavigation(
                     language = uiState.language,
                     onLanguageChange = { viewModel.changeLanguage(it) },
                     themeMode = uiState.themeMode,
@@ -63,4 +72,5 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+}
 }

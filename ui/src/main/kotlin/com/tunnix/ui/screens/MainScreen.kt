@@ -1,8 +1,12 @@
 package com.tunnix.ui.screens
 
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -154,12 +158,21 @@ fun MainScreen(
                         .background(statusDotColor)
                 )
                 Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = statusTitle,
-                    color = if (isConnected) EmeraldGreen else TunnixStyle.glass.textPrimary,
-                    fontSize = 17.sp,
-                    fontWeight = FontWeight.SemiBold
-                )
+                AnimatedContent(
+                    targetState = statusTitle,
+                    transitionSpec = {
+                        fadeIn(animationSpec = tween(220, easing = FastOutSlowInEasing)) togetherWith
+                        fadeOut(animationSpec = tween(180, easing = FastOutSlowInEasing))
+                    },
+                    label = "statusTitleAnim"
+                ) { title ->
+                    Text(
+                        text = title,
+                        color = if (isConnected) EmeraldGreen else TunnixStyle.glass.textPrimary,
+                        fontSize = 17.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
             }
 
             if (!statusSubtitle.isNullOrBlank()) {

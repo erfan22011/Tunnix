@@ -1,17 +1,26 @@
 package com.tunnix.ui.components
 
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -40,7 +49,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.tunnix.core.models.VpnState
 import com.tunnix.ui.theme.EmeraldGreen
-import com.tunnix.ui.theme.EmeraldGlow
 import com.tunnix.ui.theme.StatusConnecting
 import com.tunnix.ui.theme.TunnixStyle
 
@@ -54,6 +62,9 @@ fun LiquidPowerButton(
     cancelText: String = "Cancel",
     disconnectText: String = "Disconnect"
 ) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+
     val infiniteTransition = rememberInfiniteTransition(label = "power_pulse")
 
     // Rotation animation for Connecting state
@@ -61,7 +72,7 @@ fun LiquidPowerButton(
         initialValue = 0f,
         targetValue = 360f,
         animationSpec = infiniteRepeatable(
-            animation = tween(1500, easing = LinearEasing),
+            animation = tween(1400, easing = LinearEasing),
             repeatMode = RepeatMode.Restart
         ),
         label = "rotation"
@@ -72,10 +83,21 @@ fun LiquidPowerButton(
         initialValue = 1.0f,
         targetValue = 1.05f,
         animationSpec = infiniteRepeatable(
-            animation = tween(1800, easing = FastOutSlowInEasing),
+            animation = tween(1600, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Reverse
         ),
         label = "pulse"
+    )
+
+    // Connecting wave pulse for outer halo
+    val connectingHaloAlpha by infiniteTransition.animateFloat(
+        initialValue = 0.2f,
+        targetValue = 0.6f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(900, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "connectingHalo"
     )
 
     val isConnected = vpnState is VpnState.Connected
@@ -95,16 +117,52 @@ fun LiquidPowerButton(
         label = "powerButtonActiveColor"
     )
 
+    // Tactile bouncy spring animation when user presses the button
+    val pressScale by animateFloatAsState(
+        targetValue = if (isPressed) 0.92f else 1.0f,
+        animationSpec = if (isPressed) {
+            spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMedium)
+        } else {
+            spring(dampingRatio = Spring.DampingRatioLowBouncy, stiffness = Spring.StiffnessLow)
+        },
+        label = "buttonPressScale"
+    )
+
+    val overallScale = (if (isConnected) pulseScale else 1f) * pressScale
+
     val buttonLabel = when {
         isConnected -> disconnectText
         isConnecting -> cancelText
         else -> connectText
     }
 
+    // Smooth icon bounce on state change
+    val iconScale by animateFloatAsState(
+        targetValue = when {
+            isPressed -> 0.88f
+            isConnected -> 1.08f
+            isConnecting -> 0.94f
+            else -> 1.0f
+        },
+        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow),
+        label = "powerIconScale"
+    )
+
+    val innerBorderColor by animateColorAsState(
+        targetValue = when {
+            isConnected -> activeColor.copy(alpha = 0.75f)
+            isConnecting -> activeColor.copy(alpha = 0.55f)
+            isPressed -> activeColor.copy(alpha = 0.85f)
+            else -> activeColor.copy(alpha = 0.25f)
+        },
+        animationSpec = tween(durationMillis = 250, easing = FastOutSlowInEasing),
+        label = "innerBorderColor"
+    )
+
     Box(
         modifier = modifier
             .size(size)
-            .scale(if (isConnected) pulseScale else 1f),
+            .scale(overallScale),
         contentAlignment = Alignment.Center
     ) {
         // Outer concentric rings and animation
@@ -128,20 +186,27 @@ fun LiquidPowerButton(
                 style = Stroke(width = 1.5.dp.toPx())
             )
 
-            // Animated arc for connecting
+            // Animated arc for connecting with soft comet tail
             if (isConnecting) {
+                drawCircle(
+                    color = activeColor.copy(alpha = connectingHaloAlpha * 0.15f),
+                    radius = outerRadius + 4.dp.toPx(),
+                    style = Stroke(width = 6.dp.toPx())
+                )
+
                 drawArc(
                     brush = Brush.sweepGradient(
                         listOf(
                             Color.Transparent,
-                            activeColor.copy(alpha = 0.2f),
+                            activeColor.copy(alpha = 0.15f),
+                            activeColor.copy(alpha = 0.5f),
                             activeColor
                         )
                     ),
                     startAngle = rotationAngle,
-                    sweepAngle = 140f,
+                    sweepAngle = 160f,
                     useCenter = false,
-                    style = Stroke(width = 4.dp.toPx(), cap = StrokeCap.Round)
+                    style = Stroke(width = 4.5.dp.toPx(), cap = StrokeCap.Round)
                 )
             }
 
@@ -149,7 +214,7 @@ fun LiquidPowerButton(
             if (isConnected) {
                 drawCircle(
                     brush = Brush.radialGradient(
-                        colors = listOf(activeColor, activeColor.copy(alpha = 0.6f)),
+                        colors = listOf(activeColor, activeColor.copy(alpha = 0.5f)),
                         center = centerOffset,
                         radius = outerRadius
                     ),
@@ -184,8 +249,13 @@ fun LiquidPowerButton(
                         )
                     }
                 )
+                .border(
+                    width = 2.dp,
+                    color = innerBorderColor,
+                    shape = CircleShape
+                )
                 .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
+                    interactionSource = interactionSource,
                     indication = ripple(bounded = true, color = activeColor),
                     onClick = onClick
                 ),
@@ -198,17 +268,28 @@ fun LiquidPowerButton(
                     imageVector = Icons.Rounded.PowerSettingsNew,
                     contentDescription = buttonLabel,
                     tint = activeColor,
-                    modifier = Modifier.size(46.dp)
+                    modifier = Modifier
+                        .size(46.dp)
+                        .scale(iconScale)
                 )
 
                 Spacer(modifier = Modifier.height(8.dp))
 
-                Text(
-                    text = buttonLabel,
-                    color = TunnixStyle.glass.textPrimary,
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.Medium
-                )
+                AnimatedContent(
+                    targetState = buttonLabel,
+                    transitionSpec = {
+                        fadeIn(animationSpec = tween(220, easing = FastOutSlowInEasing)) togetherWith
+                        fadeOut(animationSpec = tween(180, easing = FastOutSlowInEasing))
+                    },
+                    label = "buttonLabelAnim"
+                ) { label ->
+                    Text(
+                        text = label,
+                        color = TunnixStyle.glass.textPrimary,
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
             }
         }
     }
