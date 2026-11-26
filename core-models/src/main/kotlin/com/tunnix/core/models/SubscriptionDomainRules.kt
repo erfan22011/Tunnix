@@ -8,7 +8,7 @@ object SubscriptionDomainRules {
     const val MIN_TOKEN_LENGTH = 1
     const val MAX_TOKEN_LENGTH = 256
 
-    private val TOKEN_REGEX = Regex("^[a-zA-Z0-9_./-]{1,256}$")
+    private val TOKEN_REGEX = Regex("^[a-zA-Z0-9_-]{1,256}$")
 
     /**
      * Allowed root domains and their subdomains.
@@ -68,7 +68,16 @@ object SubscriptionDomainRules {
             val uri = URI(url)
             val host = uri.host ?: ""
             val portStr = if (uri.port != -1 && uri.port != 443 && uri.port != 80) ":${uri.port}" else ""
-            if (host.isNotEmpty()) "https://$host$portStr/[REDACTED]" else "[REDACTED]"
+            if (host.isNotEmpty()) {
+                val path = uri.rawPath ?: ""
+                if (path.startsWith("/sub/")) {
+                    "https://$host$portStr/sub/[REDACTED]"
+                } else {
+                    "https://$host$portStr/[REDACTED]"
+                }
+            } else {
+                "[REDACTED]"
+            }
         } catch (_: Exception) {
             "[REDACTED]"
         }
@@ -77,11 +86,6 @@ object SubscriptionDomainRules {
     /**
      * Takes raw user input (which can be a full URL, or just a redeem code / sub token)
      * and normalizes it into a valid, safe HTTPS subscription URL.
-     *
-     * Example 1: "iygsr9fn68393003" -> "https://sb.tootcloud.shop:2096/sub/iygsr9fn68393003"
-     * Example 2: "https://sb.tootcloud.shop:2096/sub/iygsr9fn68393003" -> validates host and returns URL
-     *
-     * Returns Result.success(normalizedUrl) or Result.failure(Exception).
      */
     fun normalizeAndValidate(input: String): Result<String> {
         var trimmed = input.trim()
@@ -91,6 +95,11 @@ object SubscriptionDomainRules {
 
         if (trimmed.length > MAX_INPUT_LENGTH) {
             return Result.failure(IllegalArgumentException("طول ورودی بیش از حد مجاز است / Input exceeds length limit"))
+        }
+
+        // Protocol-relative URLs are strictly rejected to prevent SSRF and scheme hijacking
+        if (trimmed.startsWith("//")) {
+            return Result.failure(IllegalArgumentException("آدرس پروتکل نسبی مجاز نیست / Protocol-relative URLs not allowed"))
         }
 
         // Strict HTTPS enforcement: Insecure HTTP is rejected
@@ -129,9 +138,9 @@ object SubscriptionDomainRules {
                     return Result.failure(IllegalArgumentException("پورت وارد شده نامعتبر است / Invalid port range"))
                 }
 
-                // Verify path does not contain directory traversal sequences
-                val rawPath = uri.rawPath ?: ""
-                if (rawPath.contains("..") || rawPath.contains("//")) {
+                // Verify path does not contain directory traversal sequences (both raw and percent-encoded)
+                val rawPath = (uri.rawPath ?: "").lowercase()
+                if (rawPath.contains("..") || rawPath.contains("//") || rawPath.contains("%2e") || rawPath.contains("%2f")) {
                     return Result.failure(IllegalArgumentException("مسیر وارد شده نامعتبر است / Invalid path traversal in URL"))
                 }
 
@@ -143,7 +152,7 @@ object SubscriptionDomainRules {
 
         // If the input does not look like a URL (no scheme), treat it as a token/redeem code.
         val token = trimmed.removePrefix("/sub/").removePrefix("sub/").trim()
-        if (token.isEmpty() || token.contains(" ") || token.contains("..")) {
+        if (token.isEmpty() || token.contains(" ") || token.contains("..") || token.contains("/") || token.contains(".")) {
             return Result.failure(IllegalArgumentException("کد نامعتبر است / Invalid redeem code"))
         }
 

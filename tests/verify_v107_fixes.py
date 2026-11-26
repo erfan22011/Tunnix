@@ -69,19 +69,18 @@ def test_code_and_url_normalization():
     print("  ✓ sanitizeUrl redacts both /sub/<token> and arbitrary paths to [REDACTED]")
 
 def test_subscription_fetcher_resiliency():
-    print("\n[3/5] Testing SubscriptionFetcher v1.0.6 Proven Method...")
+    print("\n[3/5] Testing SubscriptionFetcher Secure Redirect Method...")
     fetcher_path = Path("subscription-parser/src/main/kotlin/com/tunnix/parser/SubscriptionFetcher.kt")
     content = fetcher_path.read_text(encoding="utf-8")
 
-    # 1. Check v1.0.6 standard redirection and network interceptor
-    assert "followRedirects(true)" in content, "followRedirects(true) must be enabled as in v1.0.6"
-    assert "followSslRedirects(true)" in content, "followSslRedirects(true) must be enabled as in v1.0.6"
-    assert "addNetworkInterceptor" in content, "Network interceptor for redirect auditing must exist"
-    assert "SubscriptionDomainRules.normalizeAndValidate(location)" in content, "Redirect target must be validated"
+    # Check secure manual redirection and domain validation
+    assert "followRedirects(false)" in content, "followRedirects(false) must be set for manual validation"
+    assert "currentUrl.resolve" in content, "Relative and absolute URLs must be resolved"
+    assert "SubscriptionDomainRules.isHostAllowed(resolvedUrl.host)" in content, "Redirect target must be validated"
 
-    print("  ✓ SubscriptionFetcher restored to v1.0.6 standard robust engine")
-    print("  ✓ followRedirects(true) & followSslRedirects(true) active")
-    print("  ✓ Network interceptor validates all redirect hops against allowed domains")
+    print("  ✓ SubscriptionFetcher uses manual redirect verification")
+    print("  ✓ followRedirects(false) prevents unvalidated redirect following")
+    print("  ✓ Manual loop validates all redirect hops against allowed domains and HTTPS")
 
 def test_bypass_iran_xray_config():
     print("\n[4/5] Testing Bypass Iran Xray Configuration...")

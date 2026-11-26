@@ -4,6 +4,8 @@ import com.tunnix.core.models.ServerConfig
 import com.tunnix.core.models.SubscriptionDomainRules
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import okhttp3.HttpUrl
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.IOException
@@ -21,78 +23,120 @@ class SubscriptionFetcher(
             )
         }
 
-        val url = validationResult.getOrThrow()
+        val initialUrlStr = validationResult.getOrThrow()
+        var currentUrl: HttpUrl = initialUrlStr.toHttpUrlOrNull()
+            ?: return@withContext Result.failure(
+                SubscriptionParserException.InvalidDomainException("فرمت آدرس نامعتبر است: $initialUrlStr")
+            )
 
-        val request = Request.Builder()
-            .url(url)
-            .header("User-Agent", "Tunnix/1.0.0 (Android; v2rayNG/1.8.12)")
-            .header("Accept", "*/*")
-            .build()
+        var redirects = 0
 
-        try {
-            client.newCall(request).execute().use { response ->
-                if (!response.isSuccessful) {
+        while (true) {
+            val request = Request.Builder()
+                .url(currentUrl)
+                .header("User-Agent", "Tunnix/1.0.0 (Android; v2rayNG/1.8.12)")
+                .header("Accept", "*/*")
+                .build()
+
+            val response = try {
+                client.newCall(request).execute()
+            } catch (e: IOException) {
+                return@withContext Result.failure(
+                    SubscriptionParserException.NetworkException(e.message ?: "Network failure", e)
+                )
+            } catch (e: Exception) {
+                return@withContext Result.failure(e)
+            }
+
+            if (response.isRedirect) {
+                redirects++
+                if (redirects > MAX_REDIRECTS) {
+                    response.close()
                     return@withContext Result.failure(
-                        SubscriptionParserException.NetworkException("HTTP ${response.code}: ${response.message}")
+                        SubscriptionParserException.NetworkException("تعداد ریدایرکت‌ها بیش از حد مجاز است / Too many redirects: $redirects")
                     )
                 }
 
-                val body = response.body?.string()
-                if (body.isNullOrBlank()) {
+                val locationHeader = response.header("Location")
+                response.close()
+
+                if (locationHeader.isNullOrBlank()) {
+                    return@withContext Result.failure(
+                        SubscriptionParserException.NetworkException("ریدایرکت بدون هدر Location / Redirect missing Location header")
+                    )
+                }
+
+                val resolvedUrl = currentUrl.resolve(locationHeader)
+                if (resolvedUrl == null) {
+                    return@withContext Result.failure(
+                        SubscriptionParserException.NetworkException("آدرس ریدایرکت نامعتبر است / Invalid redirect target: $locationHeader")
+                    )
+                }
+
+                if (resolvedUrl.scheme != "https") {
+                    return@withContext Result.failure(
+                        SubscriptionParserException.NetworkException("ریدایرکت ناامن به پروتکل غیر HTTPS رد شد / Insecure redirect rejected: ${resolvedUrl.scheme}")
+                    )
+                }
+
+                if (!SubscriptionDomainRules.isHostAllowed(resolvedUrl.host)) {
+                    return@withContext Result.failure(
+                        SubscriptionParserException.InvalidDomainException(
+                            "ریدایرکت به دامنه غیرمجاز رد شد / Redirect to unauthorized domain rejected: ${SubscriptionDomainRules.sanitizeUrl(resolvedUrl.toString())}"
+                        )
+                    )
+                }
+
+                currentUrl = resolvedUrl
+                continue
+            }
+
+            response.use { resp ->
+                if (!resp.isSuccessful) {
+                    return@withContext Result.failure(
+                        SubscriptionParserException.NetworkException("HTTP ${resp.code}: ${resp.message}")
+                    )
+                }
+
+                val responseBody = resp.body
+                if (responseBody == null) {
                     return@withContext Result.failure(SubscriptionParserException.EmptySubscriptionException())
                 }
 
-                try {
+                val source = responseBody.source()
+                source.request(MAX_BODY_BYTES + 1)
+                if (source.buffer.size > MAX_BODY_BYTES) {
+                    return@withContext Result.failure(
+                        SubscriptionParserException.NetworkException("حجم محتوای اشتراک بیش از ۲ مگابایت است / Subscription response exceeds 2MB limit")
+                    )
+                }
+
+                val body = responseBody.string()
+                if (body.isBlank()) {
+                    return@withContext Result.failure(SubscriptionParserException.EmptySubscriptionException())
+                }
+
+                return@withContext try {
                     val servers = SubscriptionParser.parse(body)
                     Result.success(servers)
                 } catch (e: Exception) {
                     Result.failure(e)
                 }
             }
-        } catch (e: IOException) {
-            Result.failure(SubscriptionParserException.NetworkException(e.message ?: "Network failure", e))
-        } catch (e: Exception) {
-            Result.failure(e)
         }
     }
 
     companion object {
-        private const val MAX_REDIRECTS = 5
-        private val redirectCount = ThreadLocal<Int>()
+        const val MAX_REDIRECTS = 5
+        const val MAX_BODY_BYTES = 2L * 1024 * 1024 // 2MB limit
 
         fun defaultClient(): OkHttpClient {
             return OkHttpClient.Builder()
                 .connectTimeout(15, TimeUnit.SECONDS)
                 .readTimeout(15, TimeUnit.SECONDS)
                 .writeTimeout(15, TimeUnit.SECONDS)
-                .addInterceptor { chain ->
-                    redirectCount.set(0)
-                    try {
-                        chain.proceed(chain.request())
-                    } finally {
-                        redirectCount.remove()
-                    }
-                }
-                .addNetworkInterceptor { chain ->
-                    val response = chain.proceed(chain.request())
-                    if (response.isRedirect) {
-                        val count = (redirectCount.get() ?: 0) + 1
-                        redirectCount.set(count)
-                        if (count > MAX_REDIRECTS) {
-                            throw IOException("تعداد ریدایرکت‌ها بیش از حد مجاز است / Too many redirects: $count")
-                        }
-                        val location = response.header("Location")
-                        if (!location.isNullOrBlank()) {
-                            val validation = SubscriptionDomainRules.normalizeAndValidate(location)
-                            if (validation.isFailure) {
-                                throw IOException("ریدایرکت به دامنه غیرمجاز رد شد / Redirect to unauthorized domain rejected: $location")
-                            }
-                        }
-                    }
-                    response
-                }
-                .followRedirects(true)
-                .followSslRedirects(true)
+                .followRedirects(false)
+                .followSslRedirects(false)
                 .retryOnConnectionFailure(true)
                 .build()
         }

@@ -36,10 +36,9 @@ assert 'cleanHost == "[::1]"' in domain_rules or 'cleanHost == "::1"' in domain_
 print("✅ Test 3 (Comprehensive SSRF private IP coverage): PASSED")
 
 # Check 4: Redirect validation and Max Redirect Limit
-assert 'MAX_REDIRECTS = 5' in fetcher_code or 'count > MAX_REDIRECTS' in fetcher_code
-assert 'redirectCount' in fetcher_code
-assert 'SubscriptionDomainRules.normalizeAndValidate(location)' in fetcher_code
-assert 'addNetworkInterceptor' in fetcher_code
+assert 'MAX_REDIRECTS = 5' in fetcher_code or 'redirects > MAX_REDIRECTS' in fetcher_code
+assert 'currentUrl.resolve' in fetcher_code
+assert 'SubscriptionDomainRules.isHostAllowed(resolvedUrl.host)' in fetcher_code
 print("✅ Test 4 (Redirect Hop Re-validation & Loop Protection): PASSED")
 
 # Check 5: Token bounds & safe Java URI construction

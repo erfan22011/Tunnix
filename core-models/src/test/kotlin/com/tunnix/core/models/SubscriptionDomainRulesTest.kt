@@ -34,11 +34,19 @@ class SubscriptionDomainRulesTest {
     }
 
     @Test
-    fun `test auto upgrade plain HTTP to HTTPS`() {
+    fun `test reject plain HTTP URLs`() {
         val httpUrl = "http://sb.tootcloud.shop:2096/sub/iygsr9fn68393003"
         val res = SubscriptionDomainRules.normalizeAndValidate(httpUrl)
-        assertTrue(res.isSuccess)
-        assertEquals("https://sb.tootcloud.shop:2096/sub/iygsr9fn68393003", res.getOrNull())
+        assertTrue(res.isFailure)
+        assertTrue(res.exceptionOrNull()?.message?.contains("HTTPS") == true)
+    }
+
+    @Test
+    fun `test reject protocol relative URLs`() {
+        val protoRelative = "//evil.com/sub/token123"
+        val res = SubscriptionDomainRules.normalizeAndValidate(protoRelative)
+        assertTrue("Protocol-relative URLs starting with // must be rejected", res.isFailure)
+        assertTrue(res.exceptionOrNull()?.message?.contains("نسبی") == true)
     }
 
     @Test
@@ -76,6 +84,21 @@ class SubscriptionDomainRulesTest {
 
         val spaceToken = "token with spaces"
         assertTrue(SubscriptionDomainRules.normalizeAndValidate(spaceToken).isFailure)
+
+        val dotToken = "token.with.dots"
+        assertTrue(SubscriptionDomainRules.normalizeAndValidate(dotToken).isFailure)
+
+        val slashToken = "token/with/slash"
+        assertTrue(SubscriptionDomainRules.normalizeAndValidate(slashToken).isFailure)
+    }
+
+    @Test
+    fun `test reject percent encoded path traversal`() {
+        val encodedTraversal1 = "https://sb.tootcloud.shop:2096/sub/%2e%2e/admin"
+        assertTrue(SubscriptionDomainRules.normalizeAndValidate(encodedTraversal1).isFailure)
+
+        val encodedTraversal2 = "https://sb.tootcloud.shop:2096/sub/%2E%2E/admin"
+        assertTrue(SubscriptionDomainRules.normalizeAndValidate(encodedTraversal2).isFailure)
     }
 
     @Test
@@ -112,10 +135,10 @@ class SubscriptionDomainRulesTest {
     @Test
     fun `test traffic stats formatting`() {
         val stats = TrafficStats(
-            uploadSpeedBytesPerSec = 26757, // ~26.13 KiB/s
-            downloadSpeedBytesPerSec = 289484, // ~282.70 KiB/s
-            totalUploadBytes = 1363148, // 1.30 MiB
-            totalDownloadBytes = 7801405 // 7.44 MiB
+            uploadSpeedBytesPerSec = 26757,
+            downloadSpeedBytesPerSec = 289484,
+            totalUploadBytes = 1363148,
+            totalDownloadBytes = 7801405
         )
 
         assertEquals("26.13 KiB/s", stats.formattedUploadSpeed)
