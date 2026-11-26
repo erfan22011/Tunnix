@@ -62,6 +62,19 @@ class SubscriptionFetcher(
                 .connectTimeout(15, TimeUnit.SECONDS)
                 .readTimeout(15, TimeUnit.SECONDS)
                 .writeTimeout(15, TimeUnit.SECONDS)
+                .addNetworkInterceptor { chain ->
+                    val response = chain.proceed(chain.request())
+                    if (response.isRedirect) {
+                        val location = response.header("Location")
+                        if (!location.isNullOrBlank()) {
+                            val validation = SubscriptionDomainRules.normalizeAndValidate(location)
+                            if (validation.isFailure) {
+                                throw IOException("ریدایرکت به دامنه غیرمجاز رد شد / Redirect to unauthorized domain rejected: $location")
+                            }
+                        }
+                    }
+                    response
+                }
                 .followRedirects(true)
                 .followSslRedirects(true)
                 .retryOnConnectionFailure(true)

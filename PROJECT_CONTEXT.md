@@ -12,11 +12,35 @@
   * `1.0.2` (`versionCode = 3`, `versionName = "1.0.2"`, commit: `39c3f9e`)
   * `1.0.1` (`versionCode = 2`, `versionName = "1.0.1"`, commit: `f670292`)
 * **Permanent Baseline Tag:** `stable-baseline-v1.0.1`
-* **Release Tags:** `v1.0.1`, `v1.0.2`, `v1.0.3`
+* **Release Tags:** `v1.0.1`, `v1.0.2`, `v1.0.3`, `v1.0.4`
 * **Instant Rollback Command to v1.0.1:**
   ```bash
   git checkout main && git reset --hard stable-baseline-v1.0.1 && git clean -fd
   ```
+
+---
+
+## 1.0 What was Fixed & Added in Version 1.0.4
+
+1. **VPN Lifecycle & Error State Preservation:**
+   * Resolved regression where `stopTunnel()` coroutine overwrote `VpnState.Error` with `VpnState.Disconnected`. Errors are now preserved and surfaced directly to UI.
+   * Eliminated race condition on quick server switching and reconnects by tracking active jobs and start IDs.
+2. **Crash Prevention on Invalid Server Intent:**
+   * Prevented `ForegroundServiceDidNotStartInTimeException` on Android 8+ by guaranteeing a foreground notification is immediately posted before service termination.
+3. **Blocking Mode for Virtual TUN (`setBlocking(true)`):**
+   * Changed `TunInterfaceBuilder.kt` from `builder.setBlocking(false)` to `builder.setBlocking(true)` to match Go/Xray tun2socks blocking read semantics.
+4. **Seamless Network Transition Monitoring:**
+   * Replaced transport-specific NetworkCallback with `registerDefaultNetworkCallback` (Android 7+), preventing the app from getting permanently stuck in `Reconnecting` during Wi-Fi to cellular handover.
+5. **Accurate Traffic Metrics Calculation:**
+   * Fixed compounded accumulation (`+=`) in `XrayCoreController.queryTrafficStats()` by directly tracking cumulative metrics returned by the Xray-core stats engine.
+6. **Protocol & Transport Expansion (Reality & gRPC):**
+   * Added complete `realitySettings` block generation (`publicKey`, `shortId`, `spiderX`, `serverName`, `fingerprint`) for VLESS Reality configs.
+   * Added `grpcSettings` (`serviceName`, `multiMode`) and `httpSettings` generation.
+7. **Security & Parser Hardening:**
+   * Mitigated SSRF / Open Redirect bypass in `SubscriptionFetcher` by validating redirect targets with network interceptor.
+   * Hardened country flag detection in `ServerItemCard.kt` and parsers using tokenized boundaries to eliminate false matches (e.g. Sweden vs Germany, Russia vs USA).
+   * Guarded native CoreController loading in JVM tests without returning false positives in Android production.
+   * Removed unnecessary `"geoip:private"` dependency from Xray routing rules.
 
 ---
 

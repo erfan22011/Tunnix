@@ -25,6 +25,22 @@ class MainActivity : ComponentActivity() {
         setContent {
             val uiState by viewModel.uiState.collectAsState()
 
+            val notificationPermissionLauncher = rememberLauncherForActivityResult(
+                contract = ActivityResultContracts.RequestPermission()
+            ) { /* granted or denied */ }
+
+            androidx.compose.runtime.LaunchedEffect(Unit) {
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                    if (androidx.core.content.ContextCompat.checkSelfPermission(
+                            this@MainActivity,
+                            android.Manifest.permission.POST_NOTIFICATIONS
+                        ) != android.content.pm.PackageManager.PERMISSION_GRANTED
+                    ) {
+                        notificationPermissionLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+                    }
+                }
+            }
+
             val vpnPermissionLauncher = rememberLauncherForActivityResult(
                 contract = ActivityResultContracts.StartActivityForResult()
             ) { result ->

@@ -15,6 +15,13 @@ object XrayCoreController {
     private var activeConfigJson: String? = null
     private var coreController: libv2ray.CoreController? = null
 
+    /**
+     * Test hook to allow JVM unit tests to mock execution without failing on missing Android .so libraries.
+     * In production (default = false), missing native binaries produce a real startup failure.
+     */
+    @Volatile
+    var bypassNativeCoreForTesting: Boolean = false
+
     // Real-time counter caches for traffic stats
     private var lastUplinkBytes: Long = 0L
     private var lastDownlinkBytes: Long = 0L
@@ -81,6 +88,8 @@ object XrayCoreController {
             stopNativeCore()
             isCoreRunning.set(false)
             activeConfigJson = null
+            lastUplinkBytes = 0L
+            lastDownlinkBytes = 0L
             true
         } catch (_: Exception) {
             false
@@ -93,6 +102,7 @@ object XrayCoreController {
 
     /**
      * Queries stats from Xray core (e.g. "proxy,uplink,1024;proxy,downlink,2048;")
+     * Assigns cumulative metrics directly without compounding accumulation.
      */
     fun queryTrafficStats(): Pair<Long, Long> {
         if (!isCoreRunning.get()) return Pair(0L, 0L)
@@ -110,9 +120,10 @@ object XrayCoreController {
                         else if (dir == "downlink") totalDownlink += value
                     }
                 }
+                // Assign directly rather than += compounding (Xray returns cumulative outbound stats)
                 if (totalUplink > 0 || totalDownlink > 0) {
-                    lastUplinkBytes += totalUplink
-                    lastDownlinkBytes += totalDownlink
+                    lastUplinkBytes = totalUplink
+                    lastDownlinkBytes = totalDownlink
                 }
             }
         } catch (_: Throwable) {}
@@ -133,10 +144,19 @@ object XrayCoreController {
             coreController = controller
             true
         } catch (e: UnsatisfiedLinkError) {
-            // Running in JVM / Unit test environment without native Android binary
-            true
+            if (bypassNativeCoreForTesting) {
+                true
+            } else {
+                lastStartupError = "کتابخانه نیتیو هسته لود نشد (UnsatisfiedLinkError): ${e.message}"
+                false
+            }
         } catch (e: NoClassDefFoundError) {
-            true
+            if (bypassNativeCoreForTesting) {
+                true
+            } else {
+                lastStartupError = "کلاس نیتیو هسته یافت نشد (NoClassDefFoundError): ${e.message}"
+                false
+            }
         } catch (e: Exception) {
             lastStartupError = e.message ?: e.toString()
             false

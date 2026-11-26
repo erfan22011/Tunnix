@@ -36,10 +36,13 @@ object XrayConfigGenerator {
         root.add("log", log)
 
         // 2. Inbounds block (TUN interface + Socks5 & HTTP for proxying)
+        val safeSocksPort = if (socksPort > 0) getAvailablePort(socksPort) else 0
+        val safeHttpPort = if (httpPort > 0) getAvailablePort(httpPort) else 0
+
         val inbounds = JsonArray().apply {
             add(buildTunInbound())
-            add(buildSocksInbound(socksPort))
-            add(buildHttpInbound(httpPort))
+            if (safeSocksPort > 0) add(buildSocksInbound(safeSocksPort))
+            if (safeHttpPort > 0) add(buildHttpInbound(safeHttpPort))
         }
         root.add("inbounds", inbounds)
 
@@ -71,7 +74,6 @@ object XrayConfigGenerator {
                     addProperty("type", "field")
                     addProperty("outboundTag", "direct")
                     val ipArray = JsonArray().apply {
-                        add("geoip:private")
                         add("10.0.0.0/8")
                         add("172.16.0.0/12")
                         add("192.168.0.0/16")
@@ -299,6 +301,20 @@ object XrayConfigGenerator {
                 }
             }
             streamSettings.add("tlsSettings", tlsObj)
+        } else if (sec == "reality") {
+            val realityObj = JsonObject().apply {
+                addProperty("serverName", server.sni.ifBlank { server.host })
+                val pbk = server.queryParams["pbk"] ?: server.queryParams["publicKey"] ?: ""
+                if (pbk.isNotBlank()) addProperty("publicKey", pbk)
+                val sid = server.queryParams["sid"] ?: server.queryParams["shortId"] ?: ""
+                if (sid.isNotBlank()) addProperty("shortId", sid)
+                val spx = server.queryParams["spx"] ?: server.queryParams["spiderX"] ?: ""
+                if (spx.isNotBlank()) addProperty("spiderX", spx)
+                if (server.fingerprint.isNotBlank()) {
+                    addProperty("fingerprint", server.fingerprint)
+                }
+            }
+            streamSettings.add("realitySettings", realityObj)
         }
 
         // XHTTP Transport Settings
@@ -419,6 +435,25 @@ object XrayConfigGenerator {
                 }
                 streamSettings.add("tcpSettings", tcpObj)
             }
+        } else if (server.network == NetworkType.GRPC) {
+            val serviceName = server.queryParams["serviceName"] ?: server.path.trimStart('/')
+            val grpcObj = JsonObject().apply {
+                if (serviceName.isNotBlank()) {
+                    addProperty("serviceName", serviceName)
+                }
+                val multiMode = server.queryParams["mode"].equals("multi", ignoreCase = true)
+                addProperty("multiMode", multiMode)
+            }
+            streamSettings.add("grpcSettings", grpcObj)
+        } else if (server.network == NetworkType.HTTP) {
+            val httpObj = JsonObject().apply {
+                val hostArray = JsonArray()
+                val h = server.host.ifBlank { server.sni }
+                if (h.isNotBlank()) hostArray.add(h)
+                add("host", hostArray)
+                addProperty("path", server.path.ifBlank { "/" })
+            }
+            streamSettings.add("httpSettings", httpObj)
         }
 
         outbound.add("streamSettings", streamSettings)
@@ -438,6 +473,22 @@ object XrayConfigGenerator {
             addProperty("tag", "block")
             addProperty("protocol", "blackhole")
             add("settings", JsonObject())
+        }
+    }
+
+    /**
+     * Finds an available local port, falling back to an ephemeral free port if the preferred port is occupied.
+     */
+    fun getAvailablePort(preferredPort: Int): Int {
+        if (preferredPort <= 0) return 0
+        return try {
+            java.net.ServerSocket(preferredPort, 1, java.net.InetAddress.getByName("127.0.0.1")).use { it.localPort }
+        } catch (_: Exception) {
+            try {
+                java.net.ServerSocket(0, 1, java.net.InetAddress.getByName("127.0.0.1")).use { it.localPort }
+            } catch (_: Exception) {
+                preferredPort
+            }
         }
     }
 }

@@ -24,6 +24,7 @@ object VpnNotificationHelper {
         ensureNotificationChannel(context)
 
         val openAppIntent = context.packageManager.getLaunchIntentForPackage(context.packageName)
+            ?: Intent().setPackage(context.packageName)
         val openAppPendingIntent = PendingIntent.getActivity(
             context,
             0,

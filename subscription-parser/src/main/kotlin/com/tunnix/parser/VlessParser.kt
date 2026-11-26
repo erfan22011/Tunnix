@@ -125,13 +125,19 @@ object VlessParser {
 
     private fun extractCountryHint(name: String): String {
         val lower = name.lowercase()
+        val tokens = lower.split(Regex("[^a-z0-9]+")).filter { it.isNotBlank() }
         return when {
-            lower.contains("nl") || lower.contains("netherland") -> "NL"
-            lower.contains("ch") || lower.contains("swiss") -> "CH"
-            lower.contains("de") || lower.contains("germany") -> "DE"
-            lower.contains("fr") || lower.contains("france") -> "FR"
-            lower.contains("uk") || lower.contains("london") -> "GB"
-            lower.contains("us") || lower.contains("usa") -> "US"
+            tokens.contains("nl") || lower.contains("netherland") -> "NL"
+            tokens.contains("ch") || lower.contains("swiss") || lower.contains("switzerland") -> "CH"
+            tokens.contains("de") || lower.contains("germany") -> "DE"
+            tokens.contains("fr") || lower.contains("france") -> "FR"
+            tokens.contains("uk") || tokens.contains("gb") || lower.contains("london") || lower.contains("united kingdom") -> "GB"
+            tokens.contains("us") || tokens.contains("usa") || lower.contains("united states") -> "US"
+            tokens.contains("ca") || lower.contains("canada") -> "CA"
+            tokens.contains("fi") || lower.contains("finland") -> "FI"
+            tokens.contains("tr") || lower.contains("turkey") -> "TR"
+            tokens.contains("se") || lower.contains("sweden") -> "SE"
+            tokens.contains("ru") || lower.contains("russia") -> "RU"
             else -> "UN"
         }
     }

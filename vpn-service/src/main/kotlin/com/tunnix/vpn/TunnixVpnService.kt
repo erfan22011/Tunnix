@@ -10,6 +10,7 @@ import android.net.NetworkRequest
 import android.net.VpnService
 import android.os.Build
 import android.os.ParcelFileDescriptor
+import com.tunnix.core.models.ProtocolType
 import com.tunnix.core.models.ServerConfig
 import com.tunnix.core.models.VpnState
 import com.tunnix.modifier.CentralConfigRepository
@@ -20,6 +21,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class TunnixVpnService : VpnService() {
 
@@ -30,12 +32,16 @@ class TunnixVpnService : VpnService() {
     private var connectivityManager: ConnectivityManager? = null
     private var networkCallback: ConnectivityManager.NetworkCallback? = null
 
+    private var tunnelJob: Job? = null
+    private var lastStartId: Int = 0
+
     override fun onCreate() {
         super.onCreate()
         connectivityManager = getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        lastStartId = startId
         val action = intent?.action ?: return START_NOT_STICKY
 
         when (action) {
@@ -50,8 +56,31 @@ class TunnixVpnService : VpnService() {
                 if (server != null) {
                     startTunnel(server)
                 } else {
-                    VpnTunnelManager.updateState(VpnState.Error("اطلاعات سرور نامعتبر است / Invalid server config"))
-                    stopSelf()
+                    // Prevent ForegroundServiceDidNotStartInTimeException on Android 8+
+                    val fallbackConfig = ServerConfig(
+                        id = "error_fallback",
+                        name = "Error",
+                        address = "0.0.0.0",
+                        port = 0,
+                        protocol = ProtocolType.VLESS
+                    )
+                    val notification = VpnNotificationHelper.createNotification(
+                        this,
+                        fallbackConfig,
+                        VpnState.Error("اطلاعات سرور نامعتبر است / Invalid server config")
+                    )
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                        startForeground(
+                            VpnNotificationHelper.NOTIFICATION_ID,
+                            notification,
+                            ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
+                        )
+                    } else {
+                        startForeground(VpnNotificationHelper.NOTIFICATION_ID, notification)
+                    }
+
+                    val errState = VpnState.Error("اطلاعات سرور نامعتبر است / Invalid server config")
+                    stopTunnel(targetError = errState, forStartId = startId)
                 }
             }
             VpnTunnelManager.ACTION_STOP -> {
@@ -63,6 +92,8 @@ class TunnixVpnService : VpnService() {
     }
 
     private fun startTunnel(server: ServerConfig) {
+        // Cancel any pending start coroutine to prevent concurrent startup races
+        tunnelJob?.cancel()
         activeServer = server
         VpnTunnelManager.updateState(VpnState.Connecting)
 
@@ -78,7 +109,7 @@ class TunnixVpnService : VpnService() {
             startForeground(VpnNotificationHelper.NOTIFICATION_ID, notification)
         }
 
-        serviceScope.launch {
+        tunnelJob = serviceScope.launch {
             try {
                 // 2. Establish virtual TUN interface first to obtain descriptor
                 tunDescriptor = TunInterfaceBuilder.establishTun(this@TunnixVpnService, server)
@@ -88,11 +119,13 @@ class TunnixVpnService : VpnService() {
                 }
                 val tunFd = tunDescriptor!!.fd
 
-                // 3. Initialize Xray environment, assets & generate JSON config
-                copyAssetsIfNeeded()
-                XrayCoreController.initEnvironment(filesDir)
-                val dlConfig = CentralConfigRepository.getConfig()
-                val configJson = XrayConfigGenerator.generate(server, customDownloadSettings = dlConfig)
+                // 3. Initialize Xray environment, assets & generate JSON config on IO dispatcher
+                val configJson = withContext(Dispatchers.IO) {
+                    copyAssetsIfNeeded()
+                    XrayCoreController.initEnvironment(filesDir)
+                    val dlConfig = CentralConfigRepository.getConfig()
+                    XrayConfigGenerator.generate(server, customDownloadSettings = dlConfig)
+                }
 
                 // 4. Start native Xray-core loop bound directly to TUN fd
                 val startResult = XrayCoreController.start(configJson, tunFd)
@@ -121,7 +154,8 @@ class TunnixVpnService : VpnService() {
         }
     }
 
-    private fun stopTunnel() {
+    private fun stopTunnel(targetError: VpnState.Error? = null, forStartId: Int? = null) {
+        tunnelJob?.cancel()
         unregisterNetworkCallback()
 
         try {
@@ -129,9 +163,19 @@ class TunnixVpnService : VpnService() {
             tunDescriptor = null
         } catch (_: Exception) {}
 
+        val stopId = forStartId ?: lastStartId
+
         serviceScope.launch {
-            XrayCoreController.stop()
-            VpnTunnelManager.updateState(VpnState.Disconnected)
+            withContext(Dispatchers.IO) {
+                XrayCoreController.stop()
+            }
+
+            // DO NOT overwrite error state with Disconnected!
+            if (targetError != null) {
+                VpnTunnelManager.updateState(targetError)
+            } else {
+                VpnTunnelManager.updateState(VpnState.Disconnected)
+            }
 
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
                 stopForeground(STOP_FOREGROUND_REMOVE)
@@ -139,32 +183,30 @@ class TunnixVpnService : VpnService() {
                 @Suppress("DEPRECATION")
                 stopForeground(true)
             }
-            stopSelf()
+
+            // Only stop if no new startCommand has superseded this startId
+            if (stopId == lastStartId) {
+                stopSelf(stopId)
+            }
         }
     }
 
     private fun handleError(message: String, cause: Throwable? = null) {
-        stopTunnel()
         val ipOrDomainRegex = "(?:\\d{1,3}(?:\\.\\d{1,3}){3}|(?:[a-zA-Z0-9-]+\\.)+[a-zA-Z]{2,})(?::\\d+)?"
         val sanitized = message.replace(Regex(ipOrDomainRegex), "[server]")
-        VpnTunnelManager.updateState(VpnState.Error(sanitized, cause))
+        val errState = VpnState.Error(sanitized, cause)
+        stopTunnel(targetError = errState)
     }
 
     private fun registerNetworkCallback() {
         unregisterNetworkCallback()
-        val builder = NetworkRequest.Builder()
-            .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
-            .addTransportType(NetworkCapabilities.TRANSPORT_WIFI)
-            .addTransportType(NetworkCapabilities.TRANSPORT_CELLULAR)
 
         networkCallback = object : ConnectivityManager.NetworkCallback() {
             override fun onLost(network: Network) {
-                // Connection lost -> Set reconnecting
                 VpnTunnelManager.updateState(VpnState.Reconnecting)
             }
 
             override fun onAvailable(network: Network) {
-                // Network restored
                 val current = activeServer
                 if (current != null && VpnTunnelManager.vpnState.value is VpnState.Reconnecting) {
                     VpnTunnelManager.updateState(VpnState.Connected(current.displayName))
@@ -173,7 +215,16 @@ class TunnixVpnService : VpnService() {
         }
 
         try {
-            connectivityManager?.registerNetworkCallback(builder.build(), networkCallback!!)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                // Tracks only the active default network: seamlessly handles Wi-Fi <-> Cellular switches
+                connectivityManager?.registerDefaultNetworkCallback(networkCallback!!)
+            } else {
+                val builder = NetworkRequest.Builder()
+                    .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                    .addTransportType(NetworkCapabilities.TRANSPORT_WIFI)
+                    .addTransportType(NetworkCapabilities.TRANSPORT_CELLULAR)
+                connectivityManager?.registerNetworkCallback(builder.build(), networkCallback!!)
+            }
         } catch (_: Exception) {}
     }
 
@@ -184,7 +235,7 @@ class TunnixVpnService : VpnService() {
         networkCallback = null
     }
 
-    private fun copyAssetsIfNeeded() {
+    private suspend fun copyAssetsIfNeeded() = withContext(Dispatchers.IO) {
         val assetDir = java.io.File(filesDir, "xray_assets")
         if (!assetDir.exists()) assetDir.mkdirs()
         listOf("geoip.dat", "geosite.dat", "geoip-only-cn-private.dat").forEach { filename ->
@@ -203,6 +254,7 @@ class TunnixVpnService : VpnService() {
 
     override fun onDestroy() {
         super.onDestroy()
+        tunnelJob?.cancel()
         unregisterNetworkCallback()
         try {
             tunDescriptor?.close()

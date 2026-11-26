@@ -195,17 +195,37 @@ fun ServerItemCard(
 }
 
 fun getFlagEmoji(countryCode: String, serverName: String): String {
+    val codeLower = countryCode.trim().lowercase()
+    if (codeLower.length == 2) {
+        when (codeLower) {
+            "nl" -> return "🇳🇱"
+            "ch" -> return "🇨🇭"
+            "de" -> return "🇩🇪"
+            "fr" -> return "🇫🇷"
+            "gb", "uk" -> return "🇬🇧"
+            "us" -> return "🇺🇸"
+            "ca" -> return "🇨🇦"
+            "fi" -> return "🇫🇮"
+            "tr" -> return "🇹🇷"
+            "se" -> return "🇸🇪"
+            "ru" -> return "🇷🇺"
+        }
+    }
+
+    val tokens = serverName.lowercase().split(Regex("[^a-z0-9]+")).filter { it.isNotBlank() }
     val nameLower = serverName.lowercase()
     return when {
-        nameLower.contains("netherland") || nameLower.contains("nl") -> "🇳🇱"
-        nameLower.contains("swiss") || nameLower.contains("switzerland") || nameLower.contains("ch") -> "🇨🇭"
-        nameLower.contains("germany") || nameLower.contains("de") -> "🇩🇪"
-        nameLower.contains("france") || nameLower.contains("fr") -> "🇫🇷"
-        nameLower.contains("united kingdom") || nameLower.contains("uk") || nameLower.contains("london") -> "🇬🇧"
-        nameLower.contains("united states") || nameLower.contains("usa") || nameLower.contains("us") -> "🇺🇸"
-        nameLower.contains("canada") || nameLower.contains("ca") -> "🇨🇦"
-        nameLower.contains("finland") || nameLower.contains("fi") -> "🇫🇮"
-        nameLower.contains("turkey") || nameLower.contains("tr") -> "🇹🇷"
+        tokens.contains("nl") || nameLower.contains("netherland") -> "🇳🇱"
+        tokens.contains("ch") || nameLower.contains("swiss") || nameLower.contains("switzerland") -> "🇨🇭"
+        tokens.contains("de") || nameLower.contains("germany") -> "🇩🇪"
+        tokens.contains("fr") || nameLower.contains("france") -> "🇫🇷"
+        tokens.contains("uk") || tokens.contains("gb") || nameLower.contains("united kingdom") || nameLower.contains("london") -> "🇬🇧"
+        tokens.contains("us") || tokens.contains("usa") || nameLower.contains("united states") -> "🇺🇸"
+        tokens.contains("ca") || nameLower.contains("canada") -> "🇨🇦"
+        tokens.contains("fi") || nameLower.contains("finland") -> "🇫🇮"
+        tokens.contains("tr") || nameLower.contains("turkey") -> "🇹🇷"
+        tokens.contains("se") || nameLower.contains("sweden") -> "🇸🇪"
+        tokens.contains("ru") || nameLower.contains("russia") -> "🇷🇺"
         else -> "🌐"
     }
 }
