@@ -22,7 +22,6 @@ import com.tunnix.modifier.XhttpConfigModifier
 import com.tunnix.parser.SubscriptionFetcher
 import com.tunnix.settings.AppSettingsDataStore
 import com.tunnix.traffic.TrafficMonitorRepository
-import com.tunnix.traffic.TrafficMonitorRepository
 import com.tunnix.vpn.VpnTunnelManager
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
