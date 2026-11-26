@@ -132,7 +132,7 @@ class SubscriptionFetcher(
                         return@withContext Result.failure(SubscriptionParserException.EmptySubscriptionException())
                     }
 
-                    return try {
+                    return@withContext try {
                         val servers = SubscriptionParser.parse(bodyString)
                         Result.success(servers)
                     } catch (e: Exception) {
