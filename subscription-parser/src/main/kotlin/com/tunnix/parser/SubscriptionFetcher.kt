@@ -148,5 +148,9 @@ class SubscriptionFetcher(
                 return@withContext Result.failure(e)
             }
         }
+
+        Result.failure(
+            SubscriptionParserException.NetworkException("پایان غیرمنتظره ارتباط شبکه / Unexpected end of request loop")
+        )
     }
 }
