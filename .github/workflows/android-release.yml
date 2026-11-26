@@ -47,22 +47,35 @@ jobs:
 
       - name: Build Release APKs with ABI Splits
         env:
-          KEYSTORE_PASSWORD: "tunnix2026pass"
-          KEY_ALIAS: "tunnixkey"
-          KEY_PASSWORD: "tunnix2026pass"
-        run: ./gradlew assembleRelease --stacktrace
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          if [ -z "$KEYSTORE_PASSWORD" ] || [ -z "$KEY_ALIAS" ] || [ -z "$KEY_PASSWORD" ]; then
+            echo "::error::Release build failed: Required GitHub Secrets (KEYSTORE_PASSWORD, KEY_ALIAS, KEY_PASSWORD) are not set!"
+            exit 1
+          fi
+          echo "::add-mask::$KEYSTORE_PASSWORD"
+          echo "::add-mask::$KEY_PASSWORD"
+          ./gradlew assembleRelease --stacktrace
 
       - name: Organize, Sign & Verify Release APKs
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
+          echo "::add-mask::$KEYSTORE_PASSWORD"
+          echo "::add-mask::$KEY_PASSWORD"
           mkdir -p release-artifacts
           for apk in app/build/outputs/apk/release/*.apk; do
             if [ -f "$apk" ]; then
               echo "Signing APK with apksigner (v1, v2, v3): $apk"
               $ANDROID_HOME/build-tools/34.0.0/apksigner sign \
                 --ks release.keystore \
-                --ks-pass pass:"tunnix2026pass" \
-                --ks-key-alias "tunnixkey" \
-                --key-pass pass:"tunnix2026pass" \
+                --ks-pass env:KEYSTORE_PASSWORD \
+                --ks-key-alias "$KEY_ALIAS" \
+                --key-pass env:KEY_PASSWORD \
                 --v1-signing-enabled true \
                 --v2-signing-enabled true \
                 --v3-signing-enabled true \

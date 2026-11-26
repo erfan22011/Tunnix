@@ -8,14 +8,16 @@ import os
 import subprocess
 import base64
 
-KEYSTORE_FILENAME = "release.keystore"
-KEY_ALIAS = "tunnixkey"
-STORE_PASS = "tunnix2026pass"
-KEY_PASS = "tunnix2026pass"
+KEYSTORE_FILENAME = os.getenv("KEYSTORE_FILE", "release.keystore")
+KEY_ALIAS = os.getenv("KEY_ALIAS", "tunnixkey")
+STORE_PASS = os.getenv("KEYSTORE_PASSWORD", "")
+KEY_PASS = os.getenv("KEY_PASSWORD", "")
 DNAME = "CN=Tunnix Security, OU=Tunnix Mobile, O=Tunnix Network Inc., L=Stockholm, ST=Stockholm, C=SE"
 VALIDITY_DAYS = 10000
 
 def generate_keystore():
+    if not STORE_PASS or not KEY_PASS:
+        raise ValueError("KEYSTORE_PASSWORD and KEY_PASSWORD environment variables are required to generate release keystore securely.")
     cmd = [
         "keytool",
         "-genkeypair",

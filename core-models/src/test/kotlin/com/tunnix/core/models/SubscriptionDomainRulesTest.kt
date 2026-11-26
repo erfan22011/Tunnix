@@ -34,6 +34,54 @@ class SubscriptionDomainRulesTest {
     }
 
     @Test
+    fun `test reject plain HTTP protocol`() {
+        val httpUrl = "http://sb.tootcloud.shop:2096/sub/iygsr9fn68393003"
+        val res = SubscriptionDomainRules.normalizeAndValidate(httpUrl)
+        assertTrue(res.isFailure)
+        assertTrue(res.exceptionOrNull()?.message?.contains("پروتکل ناامن HTTP") == true)
+    }
+
+    @Test
+    fun `test reject SSRF loopback and private IPs`() {
+        val localhostUrl = "https://localhost:8080/sub/test"
+        assertTrue(SubscriptionDomainRules.normalizeAndValidate(localhostUrl).isFailure)
+
+        val ip127Url = "https://127.0.0.1:8080/sub/test"
+        assertTrue(SubscriptionDomainRules.normalizeAndValidate(ip127Url).isFailure)
+
+        val ip10Url = "https://10.0.0.1:8080/sub/test"
+        assertTrue(SubscriptionDomainRules.normalizeAndValidate(ip10Url).isFailure)
+    }
+
+    @Test
+    fun `test reject invalid token traversal and characters`() {
+        val traversalToken = "../../../etc/passwd"
+        assertTrue(SubscriptionDomainRules.normalizeAndValidate(traversalToken).isFailure)
+
+        val queryToken = "token?inject=true"
+        assertTrue(SubscriptionDomainRules.normalizeAndValidate(queryToken).isFailure)
+
+        val spaceToken = "token with spaces"
+        assertTrue(SubscriptionDomainRules.normalizeAndValidate(spaceToken).isFailure)
+    }
+
+    @Test
+    fun `test reject excessively large input`() {
+        val hugeInput = "a".repeat(2050)
+        val res = SubscriptionDomainRules.normalizeAndValidate(hugeInput)
+        assertTrue(res.isFailure)
+        assertTrue(res.exceptionOrNull()?.message?.contains("بیش از حد مجاز") == true)
+    }
+
+    @Test
+    fun `test URL token sanitization in logs`() {
+        val url = "https://sb.tootcloud.shop:2096/sub/mysecrettoken12345"
+        val sanitized = SubscriptionDomainRules.sanitizeUrl(url)
+        assertEquals("https://sb.tootcloud.shop:2096/sub/[REDACTED]", sanitized)
+        assertFalse(sanitized.contains("mysecrettoken12345"))
+    }
+
+    @Test
     fun `test redeem code completion`() {
         val token = "iygsr9fn68393003"
         val res = SubscriptionDomainRules.normalizeAndValidate(token)

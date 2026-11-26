@@ -66,7 +66,6 @@ object VpnTunnelManager {
     fun reconnect(context: Context) {
         val server = activeServer
         if (server != null) {
-            stopVpn(context)
             startVpn(context, server)
         }
     }

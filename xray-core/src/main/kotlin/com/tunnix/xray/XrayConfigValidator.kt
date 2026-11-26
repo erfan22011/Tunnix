@@ -1,9 +1,23 @@
 package com.tunnix.xray
 
+import com.google.gson.JsonArray
+import com.google.gson.JsonElement
 import com.google.gson.JsonObject
 import com.google.gson.JsonParser
 
+/**
+ * Validates Xray-core JSON configurations before passing them to the native engine.
+ *
+ * Enforces:
+ * 1. Strict input length bounds (Anti-DoS / Memory Bomb)
+ * 2. Complete syntax and JSON object structure validation
+ * 3. Type-safe field checking without unchecked cast exceptions
+ * 4. Comprehensive port range validation (1..65535, or 0 for tun)
+ * 5. Inbounds, Outbounds, Protocol settings, StreamSettings, and Routing integrity
+ */
 object XrayConfigValidator {
+
+    const val MAX_CONFIG_JSON_BYTES = 512 * 1024 // 512 Kilobytes
 
     data class ValidationResult(
         val isValid: Boolean,
@@ -17,64 +31,252 @@ object XrayConfigValidator {
             return ValidationResult(false, listOf("Config JSON is empty"))
         }
 
-        val root: JsonObject = try {
-            JsonParser.parseString(configJson).asJsonObject
+        if (configJson.length > MAX_CONFIG_JSON_BYTES) {
+            return ValidationResult(false, listOf("Config JSON exceeds size limit (512KB)"))
+        }
+
+        val rootElement: JsonElement = try {
+            JsonParser.parseString(configJson)
         } catch (e: Exception) {
             return ValidationResult(false, listOf("Invalid JSON syntax: ${e.message}"))
         }
 
-        // Check essential root sections
-        if (!root.has("inbounds") || !root.getAsJsonArray("inbounds").isJsonArray) {
+        if (!rootElement.isJsonObject) {
+            return ValidationResult(false, listOf("Root element must be a JSON Object"))
+        }
+
+        val root = rootElement.asJsonObject
+
+        // 1. Validate Inbounds section
+        if (!root.has("inbounds") || !root.get("inbounds").isJsonArray) {
             issues.add("Missing or invalid 'inbounds' array")
-        }
-        if (!root.has("outbounds") || !root.getAsJsonArray("outbounds").isJsonArray) {
-            issues.add("Missing or invalid 'outbounds' array")
-        }
-        if (!root.has("routing")) {
-            issues.add("Missing 'routing' section")
-        }
-
-        val outbounds = root.getAsJsonArray("outbounds")
-        val proxyOutbound = outbounds?.firstOrNull { elem ->
-            elem.isJsonObject && elem.asJsonObject.get("tag")?.asString == "proxy"
-        }?.asJsonObject
-
-        if (proxyOutbound == null) {
-            issues.add("Missing primary 'proxy' outbound")
         } else {
-            val protocol = proxyOutbound.get("protocol")?.asString
-            if (protocol.isNullOrBlank()) {
-                issues.add("Proxy outbound missing 'protocol'")
+            val inbounds = root.getAsJsonArray("inbounds")
+            if (inbounds.size() == 0) {
+                issues.add("'inbounds' array cannot be empty")
+            } else {
+                for (i in 0 until inbounds.size()) {
+                    val elem = inbounds.get(i)
+                    if (!elem.isJsonObject) {
+                        issues.add("Inbound at index $i must be a JSON Object")
+                        continue
+                    }
+                    val inObj = elem.asJsonObject
+                    val tag = getStringSafe(inObj, "tag")
+                    if (tag.isNullOrBlank()) {
+                        issues.add("Inbound at index $i missing 'tag'")
+                    }
+                    val protocol = getStringSafe(inObj, "protocol")
+                    if (protocol.isNullOrBlank()) {
+                        issues.add("Inbound at index $i missing 'protocol'")
+                    }
+                    if (inObj.has("port") && !isValidPort(inObj.get("port"), allowZero = true)) {
+                        issues.add("Inbound at index $i has invalid port")
+                    }
+                }
+            }
+        }
+
+        // 2. Validate Outbounds section
+        if (!root.has("outbounds") || !root.get("outbounds").isJsonArray) {
+            issues.add("Missing or invalid 'outbounds' array")
+        } else {
+            val outbounds = root.getAsJsonArray("outbounds")
+            var foundProxyOutbound = false
+
+            for (i in 0 until outbounds.size()) {
+                val elem = outbounds.get(i)
+                if (!elem.isJsonObject) {
+                    issues.add("Outbound at index $i must be a JSON Object")
+                    continue
+                }
+                val outObj = elem.asJsonObject
+                val tag = getStringSafe(outObj, "tag")
+                val protocol = getStringSafe(outObj, "protocol")
+
+                if (tag == "proxy") {
+                    foundProxyOutbound = true
+                    if (protocol.isNullOrBlank()) {
+                        issues.add("Proxy outbound missing or blank 'protocol'")
+                    }
+
+                    // Validate protocol-specific settings if present
+                    if (outObj.has("settings") && outObj.get("settings").isJsonObject) {
+                        val settings = outObj.getAsJsonObject("settings")
+                        validateProxySettings(settings, protocol ?: "", issues)
+                    }
+
+                    // Validate streamSettings
+                    if (outObj.has("streamSettings")) {
+                        val streamElem = outObj.get("streamSettings")
+                        if (!streamElem.isJsonObject) {
+                            issues.add("streamSettings must be a JSON Object")
+                        } else {
+                            validateStreamSettings(streamElem.asJsonObject, issues)
+                        }
+                    }
+                }
             }
 
-            val streamSettings = proxyOutbound.getAsJsonObject("streamSettings")
-            val network = streamSettings?.get("network")?.asString
+            if (!foundProxyOutbound) {
+                issues.add("Missing primary 'proxy' outbound")
+            }
+        }
 
-            if (network == "xhttp") {
-                val xhttpSettings = streamSettings.getAsJsonObject("xhttpSettings")
-                if (xhttpSettings == null) {
-                    issues.add("XHTTP streamSettings missing 'xhttpSettings'")
+        // 3. Validate Routing section
+        if (!root.has("routing")) {
+            issues.add("Missing 'routing' section")
+        } else {
+            val routingElem = root.get("routing")
+            if (!routingElem.isJsonObject) {
+                issues.add("'routing' section must be a JSON Object")
+            } else {
+                val routing = routingElem.asJsonObject
+                if (routing.has("rules")) {
+                    val rulesElem = routing.get("rules")
+                    if (!rulesElem.isJsonArray) {
+                        issues.add("routing 'rules' must be a JSON Array")
+                    } else {
+                        val rules = rulesElem.asJsonArray
+                        for (r in 0 until rules.size()) {
+                            val rElem = rules.get(r)
+                            if (!rElem.isJsonObject) {
+                                issues.add("routing rule at index $r must be a JSON Object")
+                            } else {
+                                val ruleObj = rElem.asJsonObject
+                                val outboundTag = getStringSafe(ruleObj, "outboundTag")
+                                if (outboundTag.isNullOrBlank()) {
+                                    issues.add("routing rule at index $r missing 'outboundTag'")
+                                }
+                            }
+                        }
+                    }
                 }
+            }
+        }
 
-                // If asymmetric downloadSettings is present, validate its fields
-                val downloadSettings = streamSettings?.getAsJsonObject("downloadSettings")
-                if (downloadSettings != null) {
-                    if (!downloadSettings.has("address") || downloadSettings.get("address").asString.isBlank()) {
-                        issues.add("downloadSettings missing 'address'")
-                    }
-                    if (!downloadSettings.has("port") || downloadSettings.get("port").asInt <= 0) {
-                        issues.add("downloadSettings missing or invalid 'port'")
-                    }
-                    if (!downloadSettings.has("tlsSettings")) {
-                        issues.add("downloadSettings missing 'tlsSettings'")
-                    }
-                    if (!downloadSettings.has("xhttpSettings")) {
-                        issues.add("downloadSettings missing 'xhttpSettings'")
-                    }
+        // 4. Validate DNS section if present
+        if (root.has("dns")) {
+            val dnsElem = root.get("dns")
+            if (!dnsElem.isJsonObject) {
+                issues.add("'dns' section must be a JSON Object")
+            } else {
+                val dns = dnsElem.asJsonObject
+                if (dns.has("servers") && !dns.get("servers").isJsonArray) {
+                    issues.add("dns 'servers' must be a JSON Array")
                 }
             }
         }
 
         return ValidationResult(issues.isEmpty(), issues)
+    }
+
+    private fun validateProxySettings(settings: JsonObject, protocol: String, issues: MutableList<String>) {
+        when (protocol.lowercase()) {
+            "vless", "vmess" -> {
+                if (settings.has("vnext")) {
+                    val vnextElem = settings.get("vnext")
+                    if (!vnextElem.isJsonArray) {
+                        issues.add("vnext must be a JSON Array")
+                    } else {
+                        val vnext = vnextElem.asJsonArray
+                        for (i in 0 until vnext.size()) {
+                            val nElem = vnext.get(i)
+                            if (!nElem.isJsonObject) {
+                                issues.add("vnext node at index $i must be a JSON Object")
+                                continue
+                            }
+                            val node = nElem.asJsonObject
+                            val address = getStringSafe(node, "address")
+                            if (address.isNullOrBlank()) {
+                                issues.add("vnext node at index $i missing 'address'")
+                            }
+                            if (!isValidPort(node.get("port"), allowZero = false)) {
+                                issues.add("vnext node at index $i missing or invalid 'port'")
+                            }
+                        }
+                    }
+                }
+            }
+            "trojan", "shadowsocks" -> {
+                if (settings.has("servers")) {
+                    val serversElem = settings.get("servers")
+                    if (!serversElem.isJsonArray) {
+                        issues.add("servers must be a JSON Array")
+                    } else {
+                        val servers = serversElem.asJsonArray
+                        for (i in 0 until servers.size()) {
+                            val sElem = servers.get(i)
+                            if (!sElem.isJsonObject) {
+                                issues.add("servers node at index $i must be a JSON Object")
+                                continue
+                            }
+                            val sNode = sElem.asJsonObject
+                            val address = getStringSafe(sNode, "address")
+                            if (address.isNullOrBlank()) {
+                                issues.add("servers node at index $i missing 'address'")
+                            }
+                            if (!isValidPort(sNode.get("port"), allowZero = false)) {
+                                issues.add("servers node at index $i missing or invalid 'port'")
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private fun validateStreamSettings(streamSettings: JsonObject, issues: MutableList<String>) {
+        val network = getStringSafe(streamSettings, "network")
+
+        if (network == "xhttp") {
+            if (!streamSettings.has("xhttpSettings") || !streamSettings.get("xhttpSettings").isJsonObject) {
+                issues.add("XHTTP streamSettings missing or invalid 'xhttpSettings'")
+            }
+
+            // Asymmetric downloadSettings validation
+            if (streamSettings.has("downloadSettings")) {
+                val dlElem = streamSettings.get("downloadSettings")
+                if (!dlElem.isJsonObject) {
+                    issues.add("downloadSettings must be a JSON Object")
+                } else {
+                    val dl = dlElem.asJsonObject
+                    val address = getStringSafe(dl, "address")
+                    if (address.isNullOrBlank()) {
+                        issues.add("downloadSettings missing 'address'")
+                    }
+                    if (!isValidPort(dl.get("port"), allowZero = false)) {
+                        issues.add("downloadSettings missing or invalid 'port' (must be 1..65535)")
+                    }
+                    if (!dl.has("tlsSettings") || !dl.get("tlsSettings").isJsonObject) {
+                        issues.add("downloadSettings missing or invalid 'tlsSettings'")
+                    }
+                    if (!dl.has("xhttpSettings") || !dl.get("xhttpSettings").isJsonObject) {
+                        issues.add("downloadSettings missing or invalid 'xhttpSettings'")
+                    }
+                }
+            }
+        }
+    }
+
+    fun isValidPort(element: JsonElement?, allowZero: Boolean = false): Boolean {
+        if (element == null || !element.isJsonPrimitive) return false
+        val prim = element.asJsonPrimitive
+        val portNum = if (prim.isNumber) {
+            try { prim.asInt } catch (_: Exception) { return false }
+        } else if (prim.isString) {
+            prim.asString.toIntOrNull() ?: return false
+        } else {
+            return false
+        }
+        return if (allowZero) portNum in 0..65535 else portNum in 1..65535
+    }
+
+    private fun getStringSafe(obj: JsonObject, memberName: String): String? {
+        if (!obj.has(memberName)) return null
+        val elem = obj.get(memberName)
+        if (!elem.isJsonPrimitive) return null
+        val prim = elem.asJsonPrimitive
+        return if (prim.isString) prim.asString else null
     }
 }

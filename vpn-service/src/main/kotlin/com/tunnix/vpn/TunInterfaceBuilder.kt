@@ -57,6 +57,10 @@ object TunInterfaceBuilder {
         // 7. Blocking mode (Required by Go/Xray-core tun2socks loop)
         builder.setBlocking(true)
 
-        return builder.establish()
+        return try {
+            builder.establish()
+        } catch (_: Exception) {
+            null
+        }
     }
 }

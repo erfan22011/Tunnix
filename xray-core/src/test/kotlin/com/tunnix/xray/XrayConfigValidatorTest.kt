@@ -32,13 +32,88 @@ class XrayConfigValidatorTest {
     fun `test invalid empty json fails validation`() {
         val result = XrayConfigValidator.validate("")
         assertFalse(result.isValid)
+        assertTrue(result.issues.any { it.contains("empty") })
+    }
+
+    @Test
+    fun `test malformed json syntax fails validation gracefully`() {
+        val brokenJson = "{ \"inbounds\": [ invalid_json_syntax"
+        val result = XrayConfigValidator.validate(brokenJson)
+        assertFalse(result.isValid)
+        assertTrue(result.issues.any { it.contains("Invalid JSON syntax") })
+    }
+
+    @Test
+    fun `test non-object root fails validation`() {
+        val arrayRoot = "[\"inbounds\", \"outbounds\"]"
+        val result = XrayConfigValidator.validate(arrayRoot)
+        assertFalse(result.isValid)
+        assertTrue(result.issues.any { it.contains("must be a JSON Object") })
+    }
+
+    @Test
+    fun `test missing mandatory fields fails validation`() {
+        val missingOutbounds = """{"inbounds": [{"tag": "tun", "protocol": "tun"}], "routing": {}}"""
+        val result = XrayConfigValidator.validate(missingOutbounds)
+        assertFalse(result.isValid)
+        assertTrue(result.issues.any { it.contains("outbounds") })
+    }
+
+    @Test
+    fun `test invalid port range rejected`() {
+        // Test port > 65535
+        val invalidHighPort = """
+            {
+              "inbounds": [{"tag": "in", "protocol": "socks", "port": 99999}],
+              "outbounds": [{"tag": "proxy", "protocol": "vless"}],
+              "routing": {}
+            }
+        """.trimIndent()
+        val resultHigh = XrayConfigValidator.validate(invalidHighPort)
+        assertFalse(resultHigh.isValid)
+        assertTrue(resultHigh.issues.any { it.contains("invalid port") })
+
+        // Test negative port
+        val invalidNegativePort = """
+            {
+              "inbounds": [{"tag": "in", "protocol": "socks", "port": -5}],
+              "outbounds": [{"tag": "proxy", "protocol": "vless"}],
+              "routing": {}
+            }
+        """.trimIndent()
+        val resultNeg = XrayConfigValidator.validate(invalidNegativePort)
+        assertFalse(resultNeg.isValid)
+        assertTrue(resultNeg.issues.any { it.contains("invalid port") })
+    }
+
+    @Test
+    fun `test unexpected nested types handled safely without crash`() {
+        val weirdTypes = """
+            {
+              "inbounds": [{"tag": 123, "protocol": []}],
+              "outbounds": [{"tag": "proxy", "protocol": "vless", "streamSettings": "should_be_object"}],
+              "routing": 456
+            }
+        """.trimIndent()
+        val result = XrayConfigValidator.validate(weirdTypes)
+        assertFalse(result.isValid)
+        assertTrue(result.issues.isNotEmpty())
+    }
+
+    @Test
+    fun `test excessively large json payload rejected`() {
+        val hugePadding = " ".repeat(XrayConfigValidator.MAX_CONFIG_JSON_BYTES + 10)
+        val hugeJson = "{$hugePadding}"
+        val result = XrayConfigValidator.validate(hugeJson)
+        assertFalse(result.isValid)
+        assertTrue(result.issues.any { it.contains("exceeds size limit") })
     }
 
     @Test
     fun `test json missing downloadSettings fails XHTTP validation`() {
         val brokenJson = """
             {
-              "inbounds": [],
+              "inbounds": [{"tag": "tun", "protocol": "tun"}],
               "outbounds": [
                 {
                   "tag": "proxy",

@@ -81,7 +81,17 @@ class AppSettingsDataStore(private val context: Context) {
     }
 
     val preferencesFlow: Flow<AppPreferences> = context.dataStore.data.map { prefs ->
-        val subUrl = prefs[Keys.SUBSCRIPTION_URL] ?: ""
+        val rawSubUrl = prefs[Keys.SUBSCRIPTION_URL] ?: ""
+        val subUrl = if (rawSubUrl.isNotBlank()) {
+            try {
+                LocalSecurityCipher.decrypt(rawSubUrl)
+            } catch (_: Exception) {
+                rawSubUrl
+            }
+        } else {
+            ""
+        }
+
         val serverId = prefs[Keys.SELECTED_SERVER_ID] ?: ""
         val langCode = prefs[Keys.LANGUAGE] ?: AppLanguage.PERSIAN.code
         val themeStr = prefs[Keys.THEME_MODE] ?: ThemeMode.DARK.name
@@ -103,7 +113,17 @@ class AppSettingsDataStore(private val context: Context) {
             DownloadSettingsConfig.DEFAULT
         }
 
-        val serversJson = prefs[Keys.CACHED_SERVERS]
+        val rawServersJson = prefs[Keys.CACHED_SERVERS]
+        val serversJson = if (!rawServersJson.isNullOrBlank()) {
+            try {
+                LocalSecurityCipher.decrypt(rawServersJson)
+            } catch (_: Exception) {
+                rawServersJson
+            }
+        } else {
+            null
+        }
+
         val cachedServers = if (!serversJson.isNullOrBlank()) {
             try {
                 val listType = object : TypeToken<List<ServerConfig>>() {}.type
@@ -133,7 +153,8 @@ class AppSettingsDataStore(private val context: Context) {
     }
 
     suspend fun saveSubscriptionUrl(url: String) {
-        context.dataStore.edit { it[Keys.SUBSCRIPTION_URL] = url }
+        val encrypted = if (url.isNotBlank()) LocalSecurityCipher.encrypt(url) else ""
+        context.dataStore.edit { it[Keys.SUBSCRIPTION_URL] = encrypted }
     }
 
     suspend fun saveSelectedServerId(id: String) {
@@ -142,7 +163,8 @@ class AppSettingsDataStore(private val context: Context) {
 
     suspend fun saveCachedServers(servers: List<ServerConfig>) {
         val json = gson.toJson(servers)
-        context.dataStore.edit { it[Keys.CACHED_SERVERS] = json }
+        val encrypted = if (json.isNotBlank()) LocalSecurityCipher.encrypt(json) else ""
+        context.dataStore.edit { it[Keys.CACHED_SERVERS] = encrypted }
     }
 
     suspend fun saveLanguage(language: AppLanguage) {

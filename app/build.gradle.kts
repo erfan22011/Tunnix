@@ -12,8 +12,8 @@ android {
         applicationId = "com.tunnix.app"
         minSdk = 26
         targetSdk = 34
-        versionCode = 7
-        versionName = "1.0.6"
+        versionCode = 8
+        versionName = "1.0.7"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -36,14 +36,30 @@ android {
 
     signingConfigs {
         create("release") {
-            val keystoreFile = project.rootProject.file("release.keystore")
-            storeFile = keystoreFile
-            storePassword = System.getenv("KEYSTORE_PASSWORD") ?: "tunnix2026pass"
-            keyAlias = System.getenv("KEY_ALIAS") ?: "tunnixkey"
-            keyPassword = System.getenv("KEY_PASSWORD") ?: "tunnix2026pass"
-            enableV1Signing = true
-            enableV2Signing = true
-            enableV3Signing = true
+            val envKeystore = System.getenv("KEYSTORE_FILE") ?: (project.findProperty("KEYSTORE_FILE") as? String)
+            val keystoreFile = if (!envKeystore.isNullOrBlank()) {
+                file(envKeystore)
+            } else {
+                project.rootProject.file("release.keystore")
+            }
+
+            val storePass = System.getenv("KEYSTORE_PASSWORD") ?: (project.findProperty("KEYSTORE_PASSWORD") as? String)
+            val keyAliasVal = System.getenv("KEY_ALIAS") ?: (project.findProperty("KEY_ALIAS") as? String)
+            val keyPass = System.getenv("KEY_PASSWORD") ?: (project.findProperty("KEY_PASSWORD") as? String)
+
+            if (keystoreFile.exists() && !storePass.isNullOrBlank() && !keyAliasVal.isNullOrBlank() && !keyPass.isNullOrBlank()) {
+                storeFile = keystoreFile
+                storePassword = storePass
+                keyAlias = keyAliasVal
+                keyPassword = keyPass
+                enableV1Signing = true
+                enableV2Signing = true
+                enableV3Signing = true
+            } else {
+                // Insecure fallback passwords have been completely removed.
+                // If credentials are not supplied via environment or properties,
+                // signingConfig is omitted so an insecure build cannot proceed silently.
+            }
         }
     }
 
@@ -55,11 +71,31 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            signingConfig = signingConfigs.getByName("release")
+            val releaseSigning = signingConfigs.getByName("release")
+            if (releaseSigning.storeFile != null && releaseSigning.storeFile!!.exists() && !releaseSigning.storePassword.isNullOrBlank()) {
+                signingConfig = releaseSigning
+            }
         }
         debug {
             applicationIdSuffix = ".debug"
             isDebuggable = true
+            signingConfig = signingConfigs.getByName("debug")
+        }
+    }
+
+    gradle.taskGraph.whenReady {
+        val hasReleaseTask = allTasks.any { 
+            it.name.contains("assembleRelease", ignoreCase = true) || it.name.contains("bundleRelease", ignoreCase = true)
+        }
+        if (hasReleaseTask) {
+            val releaseSigning = signingConfigs.getByName("release")
+            if (releaseSigning.storeFile == null || !releaseSigning.storeFile!!.exists() || releaseSigning.storePassword.isNullOrBlank()) {
+                throw GradleException(
+                    "❌ Secure Release Build Failed: Missing KEYSTORE_PASSWORD, KEY_ALIAS, or KEY_PASSWORD.\n" +
+                    "Hardcoded fallback secrets have been completely removed for security compliance.\n" +
+                    "Please provide valid credentials via environment variables (KEYSTORE_PASSWORD, KEY_ALIAS, KEY_PASSWORD)."
+                )
+            }
         }
     }
 

@@ -1,6 +1,8 @@
 package com.tunnix.xray
 
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.util.concurrent.atomic.AtomicBoolean
@@ -8,10 +10,12 @@ import java.util.concurrent.atomic.AtomicBoolean
 /**
  * Controller managing the runtime lifecycle of Xray-core.
  * Integrates directly with native Libv2ray / CoreController engine.
+ * Thread-safe with Mutex-guarded lifecycle state transitions.
  */
 object XrayCoreController {
 
     private val isCoreRunning = AtomicBoolean(false)
+    private val lifecycleMutex = Mutex()
     private var activeConfigJson: String? = null
     private var coreController: libv2ray.CoreController? = null
 
@@ -26,10 +30,22 @@ object XrayCoreController {
     private var lastUplinkBytes: Long = 0L
     private var lastDownlinkBytes: Long = 0L
 
+    /**
+     * Listener invoked when the native proxy core terminates unexpectedly (crash or Go shutdown).
+     */
+    @Volatile
+    var onUnexpectedShutdown: (() -> Unit)? = null
+
     private val callbackHandler = object : libv2ray.CoreCallbackHandler {
         override fun onEmitStatus(p0: Long, p1: String?): Long = 0L
         override fun startup(): Long = 0L
-        override fun shutdown(): Long = 0L
+        override fun shutdown(): Long {
+            if (isCoreRunning.compareAndSet(true, false)) {
+                activeConfigJson = null
+                onUnexpectedShutdown?.invoke()
+            }
+            return 0L
+        }
     }
 
     /**
@@ -53,38 +69,48 @@ object XrayCoreController {
 
     /**
      * Validates and starts the Xray core with the provided JSON configuration and TUN file descriptor.
+     * Guarded with [lifecycleMutex] to prevent start/stop race conditions.
      */
     suspend fun start(configJson: String, tunFd: Int = -1): Result<Boolean> = withContext(Dispatchers.IO) {
-        val validation = XrayConfigValidator.validate(configJson)
-        if (!validation.isValid) {
-            return@withContext Result.failure(
-                IllegalArgumentException("اعتبارسنجی کانفیگ Xray ناموفق بود: ${validation.issues.joinToString("; ")}")
-            )
-        }
-
-        try {
-            stop() // Ensure any prior instance is cleanly terminated
-
-            val success = startNativeCore(configJson, tunFd)
-            if (success) {
-                isCoreRunning.set(true)
-                activeConfigJson = configJson
-                Result.success(true)
-            } else {
-                val detail = lastStartupError ?: "خطای ناشناخته در هسته بومی"
-                Result.failure(IllegalStateException("خطا در اجرای هسته Xray: $detail"))
+        lifecycleMutex.withLock {
+            val validation = XrayConfigValidator.validate(configJson)
+            if (!validation.isValid) {
+                return@withLock Result.failure(
+                    IllegalArgumentException("اعتبارسنجی کانفیگ Xray ناموفق بود: ${validation.issues.joinToString("; ")}")
+                )
             }
-        } catch (e: Exception) {
-            Result.failure(e)
+
+            try {
+                stopInternal() // Ensure any prior instance is cleanly terminated
+
+                val success = startNativeCore(configJson, tunFd)
+                if (success) {
+                    isCoreRunning.set(true)
+                    activeConfigJson = configJson
+                    Result.success(true)
+                } else {
+                    val detail = lastStartupError ?: "خطای ناشناخته در هسته بومی"
+                    Result.failure(IllegalStateException("خطا در اجرای هسته Xray: $detail"))
+                }
+            } catch (e: Exception) {
+                Result.failure(e)
+            }
         }
     }
 
     /**
      * Stops the running Xray core instance.
+     * Guarded with [lifecycleMutex] to prevent start/stop race conditions.
      */
     suspend fun stop(): Boolean = withContext(Dispatchers.IO) {
-        if (!isCoreRunning.get()) return@withContext true
-        return@withContext try {
+        lifecycleMutex.withLock {
+            stopInternal()
+        }
+    }
+
+    private fun stopInternal(): Boolean {
+        if (!isCoreRunning.get() && coreController == null) return true
+        return try {
             stopNativeCore()
             isCoreRunning.set(false)
             activeConfigJson = null
@@ -94,6 +120,13 @@ object XrayCoreController {
         } catch (_: Exception) {
             false
         }
+    }
+
+    /**
+     * Synchronous stop for use in Service onDestroy or urgent lifecycle teardown.
+     */
+    fun stopSync(): Boolean {
+        return stopInternal()
     }
 
     fun isRunning(): Boolean = isCoreRunning.get()

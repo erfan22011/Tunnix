@@ -1,8 +1,8 @@
 package com.tunnix.core.models
 
 /**
- * Encrypted in-memory vault for proprietary asymmetric download routing parameters.
- * Obfuscates sensitive hostnames, SNIs, endpoints, and padding parameters.
+ * In-memory obfuscation provider for proprietary asymmetric download routing parameters.
+ * Provides binary string obfuscation (anti-scraping) for built-in endpoint presets.
  */
 object SecureVault {
 
