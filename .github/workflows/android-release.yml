@@ -25,14 +25,22 @@ jobs:
           distribution: 'temurin'
           cache: gradle
 
-      - name: Verify Permanent Release Keystore
+      - name: Decode Release Keystore from Secrets
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
-          if [ -f release.keystore ]; then
-            echo "Permanent release.keystore found in repository."
-          else
-            echo "ERROR: release.keystore not found!"
+          if [ -z "$KEYSTORE_BASE64" ] || [ -z "$KEYSTORE_PASSWORD" ] || [ -z "$KEY_ALIAS" ] || [ -z "$KEY_PASSWORD" ]; then
+            echo "::error::Release build failed: Required GitHub Secrets (KEYSTORE_BASE64, KEYSTORE_PASSWORD, KEY_ALIAS, KEY_PASSWORD) are not set!"
             exit 1
           fi
+          echo "::add-mask::$KEYSTORE_PASSWORD"
+          echo "::add-mask::$KEY_PASSWORD"
+          echo "$KEYSTORE_BASE64" | base64 -d > /tmp/release.keystore
+          chmod 600 /tmp/release.keystore
+          echo "KEYSTORE_FILE=/tmp/release.keystore" >> $GITHUB_ENV
 
       - name: Make Gradle Wrapper Executable
         run: chmod +x gradlew
@@ -47,16 +55,11 @@ jobs:
 
       - name: Build Release APKs with ABI Splits
         env:
+          KEYSTORE_FILE: /tmp/release.keystore
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
-          if [ -z "$KEYSTORE_PASSWORD" ] || [ -z "$KEY_ALIAS" ] || [ -z "$KEY_PASSWORD" ]; then
-            echo "::error::Release build failed: Required GitHub Secrets (KEYSTORE_PASSWORD, KEY_ALIAS, KEY_PASSWORD) are not set!"
-            exit 1
-          fi
-          echo "::add-mask::$KEYSTORE_PASSWORD"
-          echo "::add-mask::$KEY_PASSWORD"
           ./gradlew assembleRelease --stacktrace
 
       - name: Organize, Sign & Verify Release APKs
@@ -72,7 +75,7 @@ jobs:
             if [ -f "$apk" ]; then
               echo "Signing APK with apksigner (v1, v2, v3): $apk"
               $ANDROID_HOME/build-tools/34.0.0/apksigner sign \
-                --ks release.keystore \
+                --ks /tmp/release.keystore \
                 --ks-pass env:KEYSTORE_PASSWORD \
                 --ks-key-alias "$KEY_ALIAS" \
                 --key-pass env:KEY_PASSWORD \
@@ -95,6 +98,8 @@ jobs:
               fi
             fi
           done
+          # Securely wipe temporary keystore from runner disk
+          rm -f /tmp/release.keystore
           echo "Generated Release Artifacts:"
           ls -lh release-artifacts/
 

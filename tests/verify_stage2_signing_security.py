@@ -30,16 +30,12 @@ assert "--ks-pass env:KEYSTORE_PASSWORD" in release_wf, "apksigner must use env:
 assert "--key-pass env:KEY_PASSWORD" in release_wf, "apksigner must use env:KEY_PASSWORD to avoid CLI leakage!"
 print("✅ Test 2 (.github/workflows/android-release.yml secrets integration & log masking): PASSED")
 
-# 3. Verify helper scripts
-with open(r"scripts/generate_release_keystore.py", "r", encoding="utf-8") as f:
-    gen_script = f.read()
-assert "tunnix2026pass" not in gen_script, "Hardcoded password found in scripts/generate_release_keystore.py!"
-assert 'os.getenv("KEYSTORE_PASSWORD"' in gen_script, "Script must read from KEYSTORE_PASSWORD env!"
-
-with open(r"tools/generate_permanent_keystore.py", "r", encoding="utf-8") as f:
-    tools_script = f.read()
-assert "tunnix2026pass" not in tools_script, "Hardcoded password found in tools/generate_permanent_keystore.py!"
-print("✅ Test 3 (Helper scripts zero hardcoded secrets): PASSED")
+# 3. Verify zero tracked keystore files in git
+git_files = subprocess.check_output(["git", "ls-files"], text=True).splitlines()
+keystore_files = [f for f in git_files if f.endswith(".keystore") or f.endswith(".jks")]
+assert len(keystore_files) == 0, f"Keystore files must NOT be tracked in git repository! Found: {keystore_files}"
+assert "secrets.KEYSTORE_BASE64" in release_wf, "android-release.yml must decode keystore from secrets.KEYSTORE_BASE64!"
+print("✅ Test 3 (Zero tracked keystores in git & base64 secret decoding): PASSED")
 
 # 4. Repository-wide check for any occurrences of leaked password
 target_needle = "tunnix" + "2026" + "pass"
