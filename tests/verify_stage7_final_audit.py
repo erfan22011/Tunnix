@@ -79,10 +79,10 @@ record_test("Repository-Wide Cleanliness: Zero Hardcoded Release Passwords", rep
 # Check git tags and build.gradle.kts version
 with open("app/build.gradle.kts", "r", encoding="utf-8") as f:
     gradle_content = f.read()
-assert 'versionName = "1.0.8"' in gradle_content, "Version name must be base v1.0.8!"
-assert 'versionCode = 9' in gradle_content, "Version code must be 9!"
+assert 'versionName = "1.0.9"' in gradle_content, "Version name must be v1.0.9!"
+assert 'versionCode = 10' in gradle_content, "Version code must be 10!"
 
-record_test("Baseline Version Integrity Verified (versionName = 1.0.8, versionCode = 9)", True)
+record_test("Release Version Bump Verified (versionName = 1.0.9, versionCode = 10)", True)
 
 print("======================================================================")
 print(f"🎉 FINAL AUDIT COMPLETE: {tests_passed}/{total_tests} TEST SUITES PASSED (100% SUCCESS)!")

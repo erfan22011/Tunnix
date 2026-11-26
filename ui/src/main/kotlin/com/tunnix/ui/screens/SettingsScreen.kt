@@ -73,8 +73,8 @@ fun SettingsScreen(
                 context.packageManager.getPackageInfo(context.packageName, 0).versionName
             }
         } catch (_: Exception) {
-            "1.0.8"
-        } ?: "1.0.8"
+            "1.0.9"
+        } ?: "1.0.9"
     }
 
     Column(
