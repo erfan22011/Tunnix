@@ -1,0 +1,145 @@
+# 📘 Tunnix Project Context & Engineering Memory
+
+> **IMPORTANT:** Any new AI agent or developer session working on this codebase **MUST read this document before making any changes**. All development must branch from and preserve the verified stable baseline.
+
+---
+
+## 1. Release History & Baselines
+
+* **App Name:** Tunnix (`com.tunnix.app`)
+* **Current Active Release:** `1.0.2` (`versionCode = 3`, `versionName = "1.0.2"`)
+* **Previous Stable Baseline:** `1.0.1` (`versionCode = 2`, `versionName = "1.0.1"`, commit: `f670292`)
+* **Permanent Baseline Tag:** `stable-baseline-v1.0.1`
+* **Release Tag:** `v1.0.2`
+* **Instant Rollback Command to v1.0.1:**
+  ```bash
+  git checkout main && git reset --hard stable-baseline-v1.0.1 && git clean -fd
+  ```
+
+---
+
+## 1.1 What was Fixed & Added in Version 1.0.2
+
+1. **VLESS Certificate Pinning (`pcs` parameter):**
+   * Supported `pcs` (Pinned Peer Certificate SHA-256) by mapping it to `tlsSettings.pinnedPeerCertSha256` in `XrayConfigGenerator.kt`.
+   * Verified against bundled native Xray-core `v1.260327.1` in `libv2ray.aar` (`libgojni.so`).
+2. **ALPN Collision Resolution (TCP + HTTP Transport):**
+   * Enforced `alpn = ["http/1.1"]` strictly when `network == NetworkType.TCP` and `headerType == "http"`.
+   * Preserves `["h2"]` for XHTTP and gRPC, and `["http/1.1"]` for WebSocket.
+3. **Comprehensive Server Address & Domain Leak Protection:**
+   * `displayName` in `ServerConfig.kt` dynamically strips server IPs, domains, and ports from any position (leading, middle, trailing, parentheses, brackets, hyphen) while strictly preserving legitimate remarks like `(clone)`, `(VIP)`, `(US)`, and custom names.
+   * `VpnNotificationHelper.kt` now displays `server.displayName` instead of `"${server.name} (${server.address})"`.
+   * `ServerItemCard.kt` and `MainScreen.kt` render sanitized `displayName`.
+   * `TunnixVpnService.handleError()` sanitizes error messages replacing IPs/domains with `[server]`.
+   * `SubscriptionDomainRules.kt` error message sanitized to not leak allowed domain list.
+4. **MIUI/Android Upgrade Fix:**
+   * Incremented `versionCode` from 2 to 3 to resolve "App not installed as package appears to be invalid" update errors.
+
+---
+
+## 2. Technology Stack & Architecture
+
+* **Platform:** Android (Min SDK: 26, Target SDK: 34, Compile SDK: 34)
+* **Languages & Runtimes:** Kotlin 1.9+, Java 17, Go (embedded inside Xray-core)
+* **UI Framework:** Jetpack Compose, Material3, Liquid Glass Dark/Light theme, Full Persian RTL & English LTR
+* **Core Engine:** Native Xray-core (`libv2ray.aar` from AndroidLibXrayLite v26.11.9)
+* **Tunneling Mechanism:** Android `VpnService` generating a virtual TUN file descriptor bound directly to Xray's Go loop (`Libv2ray.startLoop`)
+* **Modular Clean Architecture (9 Modules):**
+  1. `:app` — Application entrypoint, `MainActivity`, `MainViewModel`, dependency wiring.
+  2. `:core-models` — Domain data classes (`ServerConfig`, `VpnState`, `SecureVault`, `TrafficStats`).
+  3. `:libv2ray` — Native AAR wrapper bridging Android to the Go Xray binary.
+  4. `:subscription-parser` — Decodes Base64 subscriptions and parses VLESS, VMess, Trojan, and Shadowsocks links.
+  5. `:config-modifier` — Asymmetric XHTTP engine that injects hidden downlink settings on designated ports.
+  6. `:xray-core` — Converts domain configs to native Xray JSON schemas and manages core lifecycle.
+  7. `:vpn-service` — `TunnixVpnService`, `TunInterfaceBuilder`, `VpnNotificationHelper`, and `VpnTunnelManager`.
+  8. `:traffic-monitor` — Real-time network throughput and cumulative data tracking.
+  9. `:settings` — Preferences, theme mode, language settings, and DataStore persistence.
+  10. `:ui` — Composable components (`LiquidPowerButton`, `ServerItemCard`, `TrafficStatsCard`, `MainScreen`).
+
+---
+
+## 3. Important Source Files & Responsibilities
+
+| File | Module | Responsibility |
+| :--- | :--- | :--- |
+| `MainViewModel.kt` | `:app` | Central UI state holder, manages server selection, subscription fetching, and tunnel trigger. |
+| `ServerConfig.kt` | `:core-models` | Primary data class representing VPN servers across protocols. |
+| `SecureVault.kt` | `:core-models` | In-memory encrypted repository for hardcoded port 2053 & 6793 configurations. |
+| `ShadowsocksParser.kt` | `:subscription-parser` | Extracts and parses `ss://` configs (SIP002 and legacy base64 formats). |
+| `XhttpConfigModifier.kt` | `:config-modifier` | Inspects server ports and injects asymmetric `downloadSettings` and `xPaddingBytes`. |
+| `XrayConfigGenerator.kt` | `:xray-core` | Constructs standard Xray JSON configuration (`inbounds`, `outbounds`, `routing`, `dns`). |
+| `XrayCoreController.kt` | `:xray-core` | Invokes `Libv2ray.initV2Env` and `Libv2ray.startLoop(configJson, tunFd)`. |
+| `TunnixVpnService.kt` | `:vpn-service` | Android foreground VPN service managing tunnel lifecycle. |
+| `TunInterfaceBuilder.kt` | `:vpn-service` | Configures MTU, IP routing (`0.0.0.0/0`), and establishes the TUN file descriptor. |
+| `VpnNotificationHelper.kt`| `:vpn-service` | Builds foreground notifications with disconnect action. |
+| `MainScreen.kt` | `:ui` | Main dashboard displaying power button, real-time speed, and server selection. |
+
+---
+
+## 4. Confirmed Working Features (Must NOT Be Broken)
+
+1. **Native Core Tunneling:** Android TUN interface binding directly to native Xray-core.
+2. **Shadowsocks Protocol Support:** Extraction, parsing, and connection to `ss://` servers from subscriptions.
+3. **Dual Asymmetric Ports (2053 & 6793):**
+   * **Port 2053:** Uplink connects to server address; Downlink dynamically routed to `2053ipapp.genus.ir` (SNI/Host: `2053ovapp.genus.ir`).
+   * **Port 6793:** Uplink connects to server address; Downlink dynamically routed to `6793ipapp.genus.ir` (SNI/Host: `6793ovapp.genus.ir`).
+   * **Padding & Mode:** `xPaddingBytes: "100-1000"`, `mode: "stream-up"`.
+   * **Security:** Values are encrypted in memory via `SecureVault` and completely hidden from user settings UI.
+4. **Subscription Importing:** Decoding Base64 subscriptions and auto-populating server cards.
+5. **Real-time Traffic Monitoring:** Accurate bandwidth speeds and session data usage display.
+6. **Permanent Release Signing:** Consistent RSA-4096 `release.keystore` with v1, v2, and v3 schemes.
+7. **Architectural ABI Splits:** Standalone `arm64-v8a` (~20 MB), `armeabi-v7a` (~20.5 MB), and `universal` (~31.7 MB).
+
+---
+
+## 5. Known Issues & Pending Tasks (To Be Addressed Carefully)
+
+* **Issue 1: Package Update Error ("App not installed as package appears to be invalid"):**
+  * *Root Cause:* Installing an update over an existing version on MIUI/Android requires an incremented `versionCode` (e.g., `versionCode = 3`). Keeping `versionCode = 2` causes package installer to reject same-version installs.
+* **Issue 2: Server IP & Domain Visibility:**
+  * *Root Cause:* In `f670292`, `VpnNotificationHelper.kt` formats the notification as `"${it.name} (${it.address})"`, exposing the raw domain (e.g. `(ovv.pelqexa.ir)`). Server domains and IP addresses must be 100% hidden across the entire application and notification shade.
+* **Issue 3: UI Header Text Wrapping:**
+  * *Root Cause:* In `MainScreen.kt`, the header `Servers (${servers.size})` and `Using: ...` share an unconstrained `Row`. When the server name is long, `Servers` breaks onto two lines (`Servers` and `1`). Needs isolated badge and single-line truncation.
+* **Issue 4: TCP-HTTP Protocol Conflict:**
+  * *Root Cause:* For `type=tcp` with `headerType=http`, ALPN must be exclusively `http/1.1`. Negotiating `h2` causes a binary framing conflict with Xray's text HTTP requests.
+* **Issue 5: TUN Non-blocking Loop Termination:**
+  * *Root Cause:* `TunInterfaceBuilder.kt` has `builder.setBlocking(false)`. Native gVisor/Go TUN reader requires `builder.setBlocking(true)` to prevent immediate termination on read.
+* **Issue 6: Router Asset Dependency:**
+  * *Root Cause:* Routing rule with `"geoip:private"` fails if `geoip.dat` is missing. Direct explicit CIDRs avoid dependency on external assets.
+
+---
+
+## 6. Previous Failed Changes & Regression Prevention Rules
+
+* **DO NOT generate ad-hoc keystores in CI:** Always use the committed `release.keystore`. Dynamic keystores break the ability of users to install updates over previous versions.
+* **DO NOT overwrite `VpnState.Error` with `VpnState.Disconnected`:** In `TunnixVpnService.handleError()`, avoid calling asynchronous `stopTunnel()` that overwrites the error state before the UI can render it.
+* **DO NOT reference undefined theme tokens:** `LiquidGlassColors` contains `cardGlass`, `surface`, `glassBorder`, `textPrimary`, `textSecondary`, and `textMuted`. Do not invent `surfaceLight` or other unmapped color names.
+* **DO NOT allow APK double-signing conflicts:** Gradle's `signingConfig` already signs the APK during `assembleRelease`. When running `apksigner`, ensure alignment and signature verification are validated cleanly.
+
+---
+
+## 7. Build & Verification Procedures
+
+* **Feature & Parsing Verification:**
+  ```bash
+  python tests/test_v101_features.py
+  ```
+* **Full End-to-End Suite (25 Tests):**
+  ```bash
+  python tests/test_end_to_end_suite.py
+  ```
+* **Local Release Build:**
+  ```bash
+  ./gradlew assembleRelease
+  ```
+* **Release Triggering:**
+  A git push with a version tag (`v*`) triggers `.github/workflows/android-release.yml` on GitHub Actions.
+
+---
+
+## 8. Strict Development Rules for Future Sessions
+
+1. **Baseline Invariance:** Never overwrite or rebase past `stable-baseline-v1.0.1` (`f670292`).
+2. **Step-by-Step Verification:** Run unit test suites before committing or pushing any code.
+3. **No Unapproved Releases:** Do not delete releases, force push tags, or trigger CI release builds without explicit user instructions.
+4. **Data Privacy:** Never display raw server IP addresses or domain names in UI text or system notifications.

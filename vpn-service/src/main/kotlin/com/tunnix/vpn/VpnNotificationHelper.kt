@@ -49,7 +49,7 @@ object VpnNotificationHelper {
             is VpnState.Disconnected -> "Tunnix · Disconnected / قطع شده"
         }
 
-        val text = server?.let { "${it.name} (${it.address})" } ?: "Freedom, One Tap Away"
+        val text = server?.displayName ?: "Freedom, One Tap Away"
 
         val builder = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_lock_lock)

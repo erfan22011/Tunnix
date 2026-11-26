@@ -63,7 +63,7 @@ fun ServerItemCard(
         else -> TunnixStyle.glass.textMuted
     }
 
-    val flagEmoji = getFlagEmoji(server.countryCode, server.name)
+    val flagEmoji = getFlagEmoji(server.countryCode, server.displayName)
 
     GlassCard(
         modifier = modifier
@@ -112,7 +112,7 @@ fun ServerItemCard(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "$flagEmoji  ${server.name}",
+                        text = "$flagEmoji  ${server.displayName}",
                         color = TunnixStyle.glass.textPrimary,
                         fontSize = 15.sp,
                         fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium,

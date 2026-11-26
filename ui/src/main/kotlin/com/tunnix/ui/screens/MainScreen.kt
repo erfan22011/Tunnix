@@ -204,9 +204,9 @@ fun MainScreen(
             )
 
             if (selectedServer != null) {
-                val flag = getFlagEmoji(selectedServer.countryCode, selectedServer.name)
+                val flag = getFlagEmoji(selectedServer.countryCode, selectedServer.displayName)
                 Text(
-                    text = if (isFa) "فعال: $flag ${selectedServer.name}" else "Using: $flag ${selectedServer.name}",
+                    text = if (isFa) "فعال: $flag ${selectedServer.displayName}" else "Using: $flag ${selectedServer.displayName}",
                     color = TunnixStyle.glass.textSecondary,
                     fontSize = 12.sp,
                     maxLines = 1,

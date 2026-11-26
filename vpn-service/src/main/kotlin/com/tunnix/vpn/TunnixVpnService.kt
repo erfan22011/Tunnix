@@ -106,11 +106,11 @@ class TunnixVpnService : VpnService() {
                 registerNetworkCallback()
 
                 // 6. Update connected state
-                VpnTunnelManager.updateState(VpnState.Connected(server.name))
+                VpnTunnelManager.updateState(VpnState.Connected(server.displayName))
                 val connectedNotification = VpnNotificationHelper.createNotification(
                     this@TunnixVpnService,
                     server,
-                    VpnState.Connected(server.name)
+                    VpnState.Connected(server.displayName)
                 )
                 val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
                 notificationManager.notify(VpnNotificationHelper.NOTIFICATION_ID, connectedNotification)
@@ -145,7 +145,9 @@ class TunnixVpnService : VpnService() {
 
     private fun handleError(message: String, cause: Throwable? = null) {
         stopTunnel()
-        VpnTunnelManager.updateState(VpnState.Error(message, cause))
+        val ipOrDomainRegex = "(?:\\d{1,3}(?:\\.\\d{1,3}){3}|(?:[a-zA-Z0-9-]+\\.)+[a-zA-Z]{2,})(?::\\d+)?"
+        val sanitized = message.replace(Regex(ipOrDomainRegex), "[server]")
+        VpnTunnelManager.updateState(VpnState.Error(sanitized, cause))
     }
 
     private fun registerNetworkCallback() {
@@ -165,7 +167,7 @@ class TunnixVpnService : VpnService() {
                 // Network restored
                 val current = activeServer
                 if (current != null && VpnTunnelManager.vpnState.value is VpnState.Reconnecting) {
-                    VpnTunnelManager.updateState(VpnState.Connected(current.name))
+                    VpnTunnelManager.updateState(VpnState.Connected(current.displayName))
                 }
             }
         }

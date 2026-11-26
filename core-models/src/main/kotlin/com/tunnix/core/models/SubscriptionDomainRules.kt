@@ -67,7 +67,7 @@ object SubscriptionDomainRules {
             } else {
                 Result.failure(
                     IllegalArgumentException(
-                        "دامنه '$host' مجاز نیست. فقط دامنه‌های تحت tootcloud.shop، jorqino.ir، genus.ir و pelqexa.ir مجاز هستند."
+                        "دامنه وارد شده مجاز نیست / Domain not allowed"
                     )
                 )
             }

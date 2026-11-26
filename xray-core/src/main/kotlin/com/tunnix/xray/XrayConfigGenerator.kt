@@ -273,11 +273,27 @@ object XrayConfigGenerator {
             val tlsObj = JsonObject().apply {
                 addProperty("serverName", server.sni.ifBlank { server.host })
                 addProperty("allowInsecure", server.queryParams["allowInsecure"] == "1" || server.queryParams["insecure"] == "1")
-                if (server.alpn.isNotBlank()) {
+
+                // Handle pcs (Pinned Certificate SHA-256)
+                val pcs = server.queryParams["pcs"]?.trim() ?: ""
+                if (pcs.length == 64 && pcs.all { it.isDigit() || it in 'a'..'f' || it in 'A'..'F' }) {
+                    addProperty("pinnedPeerCertSha256", pcs.lowercase())
+                }
+
+                val isTcpHttp = server.network == NetworkType.TCP &&
+                        server.queryParams["headerType"].equals("http", ignoreCase = true)
+
+                if (isTcpHttp) {
+                    // TCP with HTTP header emulation sends plaintext HTTP/1.1 requests.
+                    // Negotiating HTTP/2 causes server RST_STREAM binary protocol error.
+                    val alpnArray = JsonArray().apply { add("http/1.1") }
+                    add("alpn", alpnArray)
+                } else if (server.alpn.isNotBlank()) {
                     val alpnArray = JsonArray()
                     server.alpn.split(",").forEach { alpnArray.add(it.trim()) }
                     add("alpn", alpnArray)
                 }
+
                 if (server.fingerprint.isNotBlank()) {
                     addProperty("fingerprint", server.fingerprint)
                 }
