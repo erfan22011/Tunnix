@@ -104,7 +104,7 @@ object XhttpExtraSanitizer {
 
     private fun isForbiddenKey(key: String): Boolean {
         val lower = key.lowercase()
-        return FORBIDDEN_KEYS.any { lower.contains(it) }
+        return lower in FORBIDDEN_KEYS
     }
 
     private fun sanitizeGenericObject(obj: JsonObject): JsonObject {
@@ -155,9 +155,12 @@ object XhttpExtraSanitizer {
 
             val networkElem = dlObj.get("network")
             val network = if (networkElem != null && networkElem.isJsonPrimitive && networkElem.asJsonPrimitive.isString) {
-                networkElem.asString
+                networkElem.asString.lowercase()
             } else {
                 "xhttp"
+            }
+            if (network != "xhttp") {
+                return null
             }
             clean.addProperty("network", network)
 
@@ -166,6 +169,9 @@ object XhttpExtraSanitizer {
                 secElem.asString.lowercase()
             } else {
                 "tls"
+            }
+            if (security !in setOf("tls", "reality", "none")) {
+                return null
             }
             clean.addProperty("security", security)
 

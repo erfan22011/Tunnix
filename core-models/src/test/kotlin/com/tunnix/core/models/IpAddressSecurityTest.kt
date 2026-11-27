@@ -56,6 +56,8 @@ class IpAddressSecurityTest {
         assertTrue(IpAddressSecurity.isPrivateOrLoopback("fe80::dead:beef%eth0")) // Link-local with zone
         assertTrue(IpAddressSecurity.isPrivateOrLoopback("::ffff:127.0.0.1")) // IPv4-mapped loopback
         assertTrue(IpAddressSecurity.isPrivateOrLoopback("::ffff:192.168.1.1")) // IPv4-mapped private
+        assertTrue(IpAddressSecurity.isPrivateOrLoopback("::ffff:7f00:1")) // IPv4-mapped loopback hex
+        assertTrue(IpAddressSecurity.isPrivateOrLoopback("::7f00:1")) // IPv4-compatible loopback hex
         assertTrue(IpAddressSecurity.isPrivateOrLoopback("64:ff9b::127.0.0.1")) // NAT64 loopback
         assertTrue(IpAddressSecurity.isPrivateOrLoopback("64:ff9b::192.168.1.1")) // NAT64 private
         assertTrue(IpAddressSecurity.isPrivateOrLoopback("64:ff9b::")) // NAT64 prefix (embeds 0.0.0.0)

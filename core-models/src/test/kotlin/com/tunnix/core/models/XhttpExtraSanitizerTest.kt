@@ -147,4 +147,50 @@ class XhttpExtraSanitizerTest {
         val resHuge = XhttpExtraSanitizer.sanitize(huge)
         assertEquals(0, resHuge.size())
     }
+
+    @Test
+    fun `test description and legitimate keys are preserved and not blocked by substring`() {
+        val input = """
+            {
+              "description": "My custom VLESS configuration",
+              "xmux": {"maxConcurrency": 8},
+              "headers": {"Host": "genus.ir"}
+            }
+        """.trimIndent()
+        val res = XhttpExtraSanitizer.sanitize(input)
+        assertTrue(res.has("description"))
+        assertEquals("My custom VLESS configuration", res.get("description").asString)
+        assertTrue(res.has("xmux"))
+        assertTrue(res.has("headers"))
+    }
+
+    @Test
+    fun `test invalid network or security in downloadSettings is dropped`() {
+        val badNetwork = """
+            {
+              "downloadSettings": {
+                "address": "genus.ir",
+                "port": 443,
+                "network": "ws",
+                "security": "tls",
+                "tlsSettings": {"serverName": "genus.ir"}
+              }
+            }
+        """.trimIndent()
+        val resNet = XhttpExtraSanitizer.sanitize(badNetwork)
+        assertFalse("downloadSettings with network!=xhttp must be dropped", resNet.has("downloadSettings"))
+
+        val badSecurity = """
+            {
+              "downloadSettings": {
+                "address": "genus.ir",
+                "port": 443,
+                "network": "xhttp",
+                "security": "insecure_proto"
+              }
+            }
+        """.trimIndent()
+        val resSec = XhttpExtraSanitizer.sanitize(badSecurity)
+        assertFalse("downloadSettings with invalid security must be dropped", resSec.has("downloadSettings"))
+    }
 }
