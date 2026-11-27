@@ -237,16 +237,21 @@ object XrayConfigValidator {
         val network = getStringSafe(streamSettings, "network")
 
         if (network == "xhttp") {
-            if (!streamSettings.has("xhttpSettings") || !streamSettings.get("xhttpSettings").isJsonObject) {
+            val xhttpSettings = if (streamSettings.has("xhttpSettings") && streamSettings.get("xhttpSettings").isJsonObject) {
+                streamSettings.getAsJsonObject("xhttpSettings")
+            } else {
                 issues.add("XHTTP streamSettings missing or invalid 'xhttpSettings'")
+                null
             }
 
-            // Asymmetric downloadSettings validation
-            if (streamSettings.has("downloadSettings")) {
-                val dlElem = streamSettings.get("downloadSettings")
-                if (!dlElem.isJsonObject) {
-                    issues.add("downloadSettings must be a JSON Object")
+            val mode = if (xhttpSettings != null) getStringSafe(xhttpSettings, "mode") else null
+
+            // Asymmetric downloadSettings validation: required when mode is stream-up, or when explicitly present
+            if (mode == "stream-up" || streamSettings.has("downloadSettings")) {
+                if (!streamSettings.has("downloadSettings") || !streamSettings.get("downloadSettings").isJsonObject) {
+                    issues.add("XHTTP streamSettings missing or invalid 'downloadSettings'")
                 } else {
+                    val dlElem = streamSettings.get("downloadSettings")
                     val dl = dlElem.asJsonObject
                     val address = getStringSafe(dl, "address")
                     if (address.isNullOrBlank()) {
