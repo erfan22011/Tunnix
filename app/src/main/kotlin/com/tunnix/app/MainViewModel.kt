@@ -208,8 +208,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 val fetchedServers = result.getOrThrow().distinctBy { it.id }
                 if (fetchedServers.isNotEmpty()) {
                     rawServers = fetchedServers
-                    // Persist valid server list into local cache
-                    dataStore.saveCachedServers(fetchedServers)
+                    // Persist valid server list into local cache securely
+                    try {
+                        dataStore.saveCachedServers(fetchedServers)
+                    } catch (_: SecurityException) {
+                        _uiState.value = _uiState.value.copy(
+                            errorMessage = "ذخیره امن اطلاعات در این دستگاه ممکن نیست / Secure storage unavailable on this device"
+                        )
+                    }
 
                     val currentConfig = _uiState.value.downloadSettings
                     val modifiedServers = XhttpConfigModifier.modifyAll(fetchedServers, currentConfig).distinctBy { it.id }
@@ -227,7 +233,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         errorMessage = null,
                         hasSubscription = true
                     )
-                    dataStore.saveSubscriptionUrl(urlOrToken)
+                    try {
+                        dataStore.saveSubscriptionUrl(urlOrToken)
+                    } catch (_: SecurityException) {
+                        _uiState.value = _uiState.value.copy(
+                            errorMessage = "ذخیره امن اطلاعات در این دستگاه ممکن نیست / Secure storage unavailable on this device"
+                        )
+                    }
                     selected?.let { dataStore.saveSelectedServerId(it.id) }
                 } else {
                     _uiState.value = _uiState.value.copy(

@@ -96,14 +96,18 @@ object LocalSecurityCipher {
     /**
      * Decrypts ciphertext and authenticates GCM tag.
      * - If input starts with "ENC:GCM:", decrypts with AES-GCM; throws SecurityException on tamper.
-     * - If input does NOT start with "ENC:GCM:", returns legacy data directly for automatic migration.
+     * - If input does NOT start with "ENC:GCM:", throws SecurityException (fail-closed)
+     *   unless allowLegacy is explicitly true for migration.
      */
-    fun decrypt(data: String): String {
+    fun decrypt(data: String, allowLegacy: Boolean = false): String {
         if (data.isBlank()) return ""
 
-        // Backwards compatibility check: If unencrypted legacy string from previous versions, return as-is
+        // Backwards compatibility check: If unencrypted legacy string from previous versions, only return if explicitly allowing legacy
         if (!data.startsWith(ENC_PREFIX)) {
-            return data
+            if (allowLegacy) {
+                return data
+            }
+            throw SecurityException("Data is unencrypted or missing secure envelope (fail-closed)")
         }
 
         val b64 = data.removePrefix(ENC_PREFIX).trim()
