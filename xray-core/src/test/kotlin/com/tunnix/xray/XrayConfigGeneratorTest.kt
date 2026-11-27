@@ -226,4 +226,94 @@ class XrayConfigGeneratorTest {
         assertEquals("tcp,udp", proxyRule.get("network").asString)
         assertFalse("Proxy rule must not have domain filter", proxyRule.has("domain"))
     }
+
+    @Test
+    fun `test legacy cached VMess server with encryption none and empty queryParams generates security auto`() {
+        val server = ServerConfig(
+            id = "test-vmess-legacy",
+            name = "Legacy VMess",
+            address = "nl.server.com",
+            port = 443,
+            protocol = ProtocolType.VMESS,
+            network = NetworkType.WS,
+            security = "tls",
+            uuid = "b831381d-6324-4d53-ad4f-8cda48b30811",
+            encryption = "none",
+            queryParams = emptyMap()
+        )
+
+        val jsonString = XrayConfigGenerator.generate(server)
+        val root = JsonParser.parseString(jsonString).asJsonObject
+        val outbounds = root.getAsJsonArray("outbounds")
+        val proxy = outbounds.first { it.asJsonObject.get("tag").asString == "proxy" }.asJsonObject
+        val user = proxy.getAsJsonObject("settings").getAsJsonArray("vnext")[0].asJsonObject.getAsJsonArray("users")[0].asJsonObject
+
+        assertEquals("Must generate security auto instead of none for legacy cached VMess", "auto", user.get("security").asString)
+        assertEquals(0, user.get("alterId").asInt)
+    }
+
+    @Test
+    fun `test VMess server with custom scy and alterId in queryParams`() {
+        val server = ServerConfig(
+            id = "test-vmess-custom",
+            name = "Custom VMess",
+            address = "nl.server.com",
+            port = 443,
+            protocol = ProtocolType.VMESS,
+            network = NetworkType.TCP,
+            security = "tls",
+            uuid = "b831381d-6324-4d53-ad4f-8cda48b30811",
+            encryption = "aes-128-gcm",
+            queryParams = mapOf("scy" to "aes-128-gcm", "alterId" to "16")
+        )
+
+        val jsonString = XrayConfigGenerator.generate(server)
+        val root = JsonParser.parseString(jsonString).asJsonObject
+        val outbounds = root.getAsJsonArray("outbounds")
+        val proxy = outbounds.first { it.asJsonObject.get("tag").asString == "proxy" }.asJsonObject
+        val user = proxy.getAsJsonObject("settings").getAsJsonArray("vnext")[0].asJsonObject.getAsJsonArray("users")[0].asJsonObject
+
+        assertEquals("aes-128-gcm", user.get("security").asString)
+        assertEquals(16, user.get("alterId").asInt)
+    }
+
+    @Test
+    fun `test VMess server with unknown scy falls back to auto`() {
+        val server = ServerConfig(
+            id = "test-vmess-unknown",
+            name = "Unknown Scy VMess",
+            address = "nl.server.com",
+            port = 443,
+            protocol = ProtocolType.VMESS,
+            uuid = "b831381d-6324-4d53-ad4f-8cda48b30811",
+            queryParams = mapOf("scy" to "invalid-cipher-xyz")
+        )
+
+        val jsonString = XrayConfigGenerator.generate(server)
+        val root = JsonParser.parseString(jsonString).asJsonObject
+        val proxy = root.getAsJsonArray("outbounds").first { it.asJsonObject.get("tag").asString == "proxy" }.asJsonObject
+        val user = proxy.getAsJsonObject("settings").getAsJsonArray("vnext")[0].asJsonObject.getAsJsonArray("users")[0].asJsonObject
+
+        assertEquals("auto", user.get("security").asString)
+    }
+
+    @Test
+    fun `test VMess server with explicit none scy respects none`() {
+        val server = ServerConfig(
+            id = "test-vmess-none",
+            name = "Explicit None VMess",
+            address = "nl.server.com",
+            port = 443,
+            protocol = ProtocolType.VMESS,
+            uuid = "b831381d-6324-4d53-ad4f-8cda48b30811",
+            queryParams = mapOf("scy" to "none")
+        )
+
+        val jsonString = XrayConfigGenerator.generate(server)
+        val root = JsonParser.parseString(jsonString).asJsonObject
+        val proxy = root.getAsJsonArray("outbounds").first { it.asJsonObject.get("tag").asString == "proxy" }.asJsonObject
+        val user = proxy.getAsJsonObject("settings").getAsJsonArray("vnext")[0].asJsonObject.getAsJsonArray("users")[0].asJsonObject
+
+        assertEquals("none", user.get("security").asString)
+    }
 }

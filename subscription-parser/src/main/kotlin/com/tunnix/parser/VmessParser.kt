@@ -41,12 +41,14 @@ object VmessParser {
             val alpn = obj.get("alpn")?.asString ?: ""
             val fp = obj.get("fp")?.asString ?: ""
 
-            val scyRaw = obj.get("scy")?.asString?.trim()?.lowercase() ?: "auto"
-            val validScy = setOf("auto", "aes-128-gcm", "chacha20-poly1305", "none", "zero")
-            val scy = if (scyRaw in validScy) scyRaw else "auto"
+            val scy = parseSafeScy(obj.get("scy"))
+            val aid = parseSafeAid(obj.get("aid"))
 
-            val aid = obj.get("aid")?.asInt ?: 0
-            val queryParams = if (aid > 0) mapOf("alterId" to aid.toString()) else emptyMap()
+            val queryParams = mutableMapOf<String, String>()
+            queryParams["scy"] = scy
+            if (aid > 0) {
+                queryParams["alterId"] = aid.toString()
+            }
 
             val network = when (net) {
                 "xhttp", "splithttp" -> NetworkType.XHTTP
@@ -81,5 +83,28 @@ object VmessParser {
         } catch (_: Exception) {
             null
         }
+    }
+
+    private val VALID_SCY = setOf("auto", "aes-128-gcm", "chacha20-poly1305", "none", "zero")
+
+    private fun parseSafeScy(elem: com.google.gson.JsonElement?): String {
+        if (elem == null || elem.isJsonNull || !elem.isJsonPrimitive) return "auto"
+        val prim = elem.asJsonPrimitive
+        if (!prim.isString) return "auto"
+        val str = prim.asString.trim().lowercase()
+        return if (str in VALID_SCY) str else "auto"
+    }
+
+    private fun parseSafeAid(elem: com.google.gson.JsonElement?): Int {
+        if (elem == null || elem.isJsonNull || !elem.isJsonPrimitive) return 0
+        val prim = elem.asJsonPrimitive
+        val num = if (prim.isNumber) {
+            try { prim.asInt } catch (_: Exception) { 0 }
+        } else if (prim.isString) {
+            prim.asString.trim().toIntOrNull() ?: 0
+        } else {
+            0
+        }
+        return if (num > 0) num else 0
     }
 }
