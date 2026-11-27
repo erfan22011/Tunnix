@@ -320,10 +320,9 @@ object XrayConfigGenerator {
         }
 
         // XHTTP Transport Settings
-        val vaultConfig = SecureVault.getConfigForPort(server.port)
-        val dlConfig = customDownloadSettings ?: vaultConfig ?: server.downloadSettings
-        val matchesTargetPort = dlConfig != null && ((server.port == dlConfig.effectiveTargetPort) || (server.port == dlConfig.port))
-        val shouldApplyAsymmetric = dlConfig != null && dlConfig.isEnabled && matchesTargetPort && server.protocol == ProtocolType.VLESS
+        val dlConfig = com.tunnix.core.models.DownloadSettingsResolver.resolve(server, customDownloadSettings)
+            ?: (server.downloadSettings?.takeIf { server.isXhttpModified })
+        val shouldApplyAsymmetric = dlConfig != null && dlConfig.isEnabled && server.protocol == ProtocolType.VLESS
 
         if (server.network == NetworkType.XHTTP || shouldApplyAsymmetric) {
             streamSettings.addProperty("network", "xhttp")
@@ -357,11 +356,12 @@ object XrayConfigGenerator {
                     addProperty("path", server.path.ifBlank { dlConfig.xhttpSettings.path })
                     addProperty("mode", dlConfig.mode.ifBlank { "stream-up" })
 
-                    // Injected xPaddingBytes & downloadSettings inside extra (Xray-core specification)
-                    val extraObj = JsonObject().apply {
-                        addProperty("xPaddingBytes", dlConfig.xPaddingBytes.ifBlank { "100-1000" })
-                        add("downloadSettings", dlSettingsObj)
-                    }
+                    // Merge sanitized safe keys from server.extraJson (excluding downloadSettings) with preset values
+                    val extraObj = com.tunnix.core.models.XhttpExtraSanitizer.sanitize(server.extraJson)
+                    extraObj.remove("downloadSettings")
+                    extraObj.addProperty("xPaddingBytes", dlConfig.xPaddingBytes.ifBlank { "100-1000" })
+                    extraObj.add("downloadSettings", dlSettingsObj)
+
                     add("extra", extraObj)
                     // Also attach downloadSettings directly for variants expecting it under xhttpSettings
                     add("downloadSettings", dlSettingsObj)
@@ -379,18 +379,7 @@ object XrayConfigGenerator {
                     addProperty("path", server.path.ifBlank { "/xhttp" })
                     addProperty("mode", server.mode.ifBlank { "auto" })
 
-                    val extraObj = JsonObject()
-                    if (server.extraJson.isNotBlank()) {
-                        try {
-                            val parsed = com.google.gson.JsonParser.parseString(server.extraJson).asJsonObject
-                            val allowedKeys = setOf("xPaddingBytes", "downloadSettings", "scMaxEachPostBytes", "noSSEHeader")
-                            for ((k, v) in parsed.entrySet()) {
-                                if (k in allowedKeys) {
-                                    extraObj.add(k, v)
-                                }
-                            }
-                        } catch (_: Exception) {}
-                    }
+                    val extraObj = com.tunnix.core.models.XhttpExtraSanitizer.sanitize(server.extraJson)
                     if (server.xPaddingBytes.isNotBlank()) {
                         extraObj.addProperty("xPaddingBytes", server.xPaddingBytes)
                     }
