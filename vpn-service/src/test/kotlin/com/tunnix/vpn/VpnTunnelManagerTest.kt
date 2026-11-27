@@ -34,7 +34,7 @@ class VpnTunnelManagerTest {
 
     @Test
     fun `test tun interface constants`() {
-        assertEquals(1500, TunInterfaceBuilder.VPN_MTU)
+        assertEquals(1400, TunInterfaceBuilder.VPN_MTU)
         assertEquals("172.19.0.1", TunInterfaceBuilder.VPN_IPV4_ADDRESS)
         assertEquals(30, TunInterfaceBuilder.VPN_IPV4_PREFIX)
         assertEquals("1.1.1.1", TunInterfaceBuilder.PRIMARY_DNS)
