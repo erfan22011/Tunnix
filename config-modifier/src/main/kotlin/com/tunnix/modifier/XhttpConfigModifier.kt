@@ -5,9 +5,10 @@ import com.google.gson.JsonArray
 import com.google.gson.JsonObject
 import com.google.gson.JsonParser
 import com.tunnix.core.models.DownloadSettingsConfig
+import com.tunnix.core.models.DownloadSettingsResolver
+import com.tunnix.core.models.IpAddressSecurity
 import com.tunnix.core.models.NetworkType
 import com.tunnix.core.models.ProtocolType
-import com.tunnix.core.models.SecureVault
 import com.tunnix.core.models.ServerConfig
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
@@ -18,39 +19,19 @@ object XhttpConfigModifier {
 
     /**
      * Checks if a server qualifies for XHTTP modification:
-     * Must be VLESS protocol AND match port 2053 or port 6793 (or custom config).
+     * Must be VLESS protocol, server address must not be loopback or private IP,
+     * and must resolve via DownloadSettingsResolver (default ports 2053, 6793, or custom targetPort).
      */
     fun isEligible(server: ServerConfig, customDownloadSettings: DownloadSettingsConfig? = null): Boolean {
         if (server.protocol != ProtocolType.VLESS) return false
-        // Never override a server that already has explicit downloadSettings configured!
-        if (server.downloadSettings != null) return false
-        // Server address must belong to allowed subscription domains or subdomains
-        if (!com.tunnix.core.models.SubscriptionDomainRules.isHostAllowed(server.address)) return false
+        if (IpAddressSecurity.isPrivateOrLoopback(server.address)) return false
 
-        if (customDownloadSettings != null) {
-            if (!customDownloadSettings.isEnabled) return false
-            return (server.port == customDownloadSettings.effectiveTargetPort) || (server.port == customDownloadSettings.port)
-        }
-
-        val vaultConfig = SecureVault.getConfigForPort(server.port)
-        if (vaultConfig != null && vaultConfig.isEnabled) return true
-
-        val central = CentralConfigRepository.getConfig()
-        if (central.isEnabled && ((server.port == central.effectiveTargetPort) || (server.port == central.port))) {
-            return true
-        }
-        return false
+        return DownloadSettingsResolver.resolve(server, customDownloadSettings) != null
     }
 
     fun resolveConfig(server: ServerConfig, customDownloadSettings: DownloadSettingsConfig? = null): DownloadSettingsConfig? {
         if (!isEligible(server, customDownloadSettings)) return null
-        if (customDownloadSettings != null) {
-            return customDownloadSettings
-        }
-        val vaultConfig = SecureVault.getConfigForPort(server.port)
-        if (vaultConfig != null && vaultConfig.isEnabled) return vaultConfig
-        val central = CentralConfigRepository.getConfig()
-        return central
+        return DownloadSettingsResolver.resolve(server, customDownloadSettings)
     }
 
     /**

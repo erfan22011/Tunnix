@@ -224,30 +224,60 @@ class XhttpConfigModifierTest {
     }
 
     @Test
-    fun `test port 6793 receives 6793 encrypted downloadSettings`() {
+    fun `test port 6793 receives 6793 encrypted downloadSettings even when default custom is passed`() {
         val server6793 = createSampleVlessXhttp().copy(port = 6793)
-        val modified = XhttpConfigModifier.modify(server6793)
-        assertTrue(modified.isXhttpModified)
-        assertEquals("6793ipapp.genus.ir", modified.downloadSettings!!.address)
-        assertEquals(6793, modified.downloadSettings!!.port)
-        assertEquals("6793ovapp.genus.ir", modified.downloadSettings!!.tlsSettings.serverName)
-        assertEquals("6793ovapp.genus.ir", modified.downloadSettings!!.xhttpSettings.host)
-        assertEquals("/xhttp", modified.downloadSettings!!.xhttpSettings.path)
+        // With null custom
+        val modifiedNull = XhttpConfigModifier.modify(server6793, null)
+        assertTrue(modifiedNull.isXhttpModified)
+        assertEquals("6793ipapp.genus.ir", modifiedNull.downloadSettings!!.address)
+        assertEquals(6793, modifiedNull.downloadSettings!!.port)
+        assertEquals("6793ovapp.genus.ir", modifiedNull.downloadSettings!!.tlsSettings.serverName)
+        assertEquals("6793ovapp.genus.ir", modifiedNull.downloadSettings!!.xhttpSettings.host)
+        assertEquals("/xhttp", modifiedNull.downloadSettings!!.xhttpSettings.path)
+
+        // With DEFAULT custom (which has targetPort = 2053)
+        val modifiedDefault = XhttpConfigModifier.modify(server6793, com.tunnix.core.models.DownloadSettingsConfig.DEFAULT)
+        assertTrue("Port 6793 must be modified even when custom is DEFAULT", modifiedDefault.isXhttpModified)
+        assertEquals("6793ipapp.genus.ir", modifiedDefault.downloadSettings!!.address)
+        assertEquals(6793, modifiedDefault.downloadSettings!!.port)
     }
 
     @Test
-    fun `test foreign server address is not eligible for XHTTP modification`() {
-        val foreignServer = createSampleVlessXhttp().copy(address = "evil.example.com")
-        assertFalse("Foreign server outside allowed domains must not be eligible", XhttpConfigModifier.isEligible(foreignServer))
-        val modified = XhttpConfigModifier.modify(foreignServer)
-        assertFalse(modified.isXhttpModified)
+    fun `test external public domain and IP are eligible for XHTTP modification`() {
+        val publicIpServer = createSampleVlessXhttp().copy(address = "185.10.20.30")
+        assertTrue("Public IP server on 2053 must be eligible", XhttpConfigModifier.isEligible(publicIpServer))
+        val modIp = XhttpConfigModifier.modify(publicIpServer)
+        assertTrue(modIp.isXhttpModified)
+
+        val externalDomainServer = createSampleVlessXhttp().copy(address = "cdn.example.net")
+        assertTrue("External domain server on 2053 must be eligible", XhttpConfigModifier.isEligible(externalDomainServer))
+        val modDomain = XhttpConfigModifier.modify(externalDomainServer)
+        assertTrue(modDomain.isXhttpModified)
     }
 
     @Test
-    fun `test server with existing explicit downloadSettings is not overwritten`() {
+    fun `test private or loopback server address is not eligible`() {
+        val loopbackServer = createSampleVlessXhttp().copy(address = "127.0.0.1")
+        assertFalse(XhttpConfigModifier.isEligible(loopbackServer))
+        assertFalse(XhttpConfigModifier.modify(loopbackServer).isXhttpModified)
+
+        val privateServer = createSampleVlessXhttp().copy(address = "192.168.1.1")
+        assertFalse(XhttpConfigModifier.isEligible(privateServer))
+        assertFalse(XhttpConfigModifier.modify(privateServer).isXhttpModified)
+
+        val localhostServer = createSampleVlessXhttp().copy(address = "localhost")
+        assertFalse(XhttpConfigModifier.isEligible(localhostServer))
+        assertFalse(XhttpConfigModifier.modify(localhostServer).isXhttpModified)
+    }
+
+    @Test
+    fun `test server with existing downloadSettings is overwritten by preset for idempotence`() {
         val serverWithSettings = createSampleVlessXhttp().copy(
-            downloadSettings = com.tunnix.core.models.DownloadSettingsConfig(address = "custom.upstream.com")
+            downloadSettings = com.tunnix.core.models.DownloadSettingsConfig(address = "old.upstream.com")
         )
-        assertFalse("Server with existing downloadSettings must not be overwritten", XhttpConfigModifier.isEligible(serverWithSettings))
+        assertTrue("Server with existing downloadSettings is eligible to be updated", XhttpConfigModifier.isEligible(serverWithSettings))
+        val modified = XhttpConfigModifier.modify(serverWithSettings)
+        assertTrue(modified.isXhttpModified)
+        assertEquals("2053ipapp.genus.ir", modified.downloadSettings!!.address)
     }
 }
