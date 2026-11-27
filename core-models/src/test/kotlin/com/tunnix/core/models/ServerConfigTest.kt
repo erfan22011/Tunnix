@@ -19,8 +19,26 @@ class ServerConfigTest {
         val vlessTls = vlessNone.copy(security = "tls")
         assertFalse(vlessTls.isTransportUnencrypted)
 
-        val vmessNone = vlessNone.copy(protocol = ProtocolType.VMESS, security = "none")
-        assertTrue(vmessNone.isTransportUnencrypted)
+        val vlessReality = vlessNone.copy(security = "reality")
+        assertFalse(vlessReality.isTransportUnencrypted)
+
+        // VMess with encryption (auto, aes-128-gcm, etc.) is encrypted and should NOT show No TLS
+        val vmessAuto = vlessNone.copy(protocol = ProtocolType.VMESS, security = "none", encryption = "auto")
+        assertFalse(vmessAuto.isTransportUnencrypted)
+
+        val vmessAes = vlessNone.copy(protocol = ProtocolType.VMESS, security = "none", encryption = "aes-128-gcm")
+        assertFalse(vmessAes.isTransportUnencrypted)
+
+        // VMess default (without explicit none scy) uses auto in Xray core -> not unencrypted
+        val vmessDefault = vlessNone.copy(protocol = ProtocolType.VMESS, security = "none")
+        assertFalse(vmessDefault.isTransportUnencrypted)
+
+        // VMess explicitly disabled (scy=none and encryption=none) is unencrypted
+        val vmessExplicitNone = vlessNone.copy(
+            protocol = ProtocolType.VMESS, security = "none", encryption = "none",
+            queryParams = mapOf("scy" to "none")
+        )
+        assertTrue(vmessExplicitNone.isTransportUnencrypted)
 
         val vmessTls = vlessNone.copy(protocol = ProtocolType.VMESS, security = "tls")
         assertFalse(vmessTls.isTransportUnencrypted)
