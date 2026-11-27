@@ -76,6 +76,9 @@ object TrafficMonitorRepository {
         currentDownloadBytes: Long,
         currentTimestamp: Long
     ): TrafficStats {
+        if (connectionStartTime == 0L) {
+            connectionStartTime = currentTimestamp
+        }
         val timeDeltaMs = (currentTimestamp - prevTimestamp).coerceAtLeast(1L)
         val timeDeltaSec = timeDeltaMs / 1000.0
 
