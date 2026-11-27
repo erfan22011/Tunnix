@@ -12,7 +12,7 @@ import com.google.gson.JsonParser
 object XhttpExtraSanitizer {
 
     private const val MAX_EXTRA_BYTES = 8192 // 8 KB
-    private const val MAX_DEPTH = 4
+    private const val MAX_DEPTH = 8
 
     private val FORBIDDEN_KEYS = setOf(
         "sockopt",
@@ -61,7 +61,11 @@ object XhttpExtraSanitizer {
      */
     fun sanitize(extraJson: String): JsonObject {
         return try {
-            if (extraJson.isBlank() || extraJson.length > MAX_EXTRA_BYTES) {
+            if (extraJson.isBlank()) {
+                return JsonObject()
+            }
+            if (extraJson.length > MAX_EXTRA_BYTES) {
+                android.util.Log.d("XhttpExtraSanitizer", "Payload size ${extraJson.length} exceeds limit $MAX_EXTRA_BYTES")
                 return JsonObject()
             }
 
@@ -76,21 +80,21 @@ object XhttpExtraSanitizer {
             }
 
             val root = parsedElement.asJsonObject
-            if (calculateDepth(root) > MAX_DEPTH) {
-                return JsonObject()
-            }
 
             val sanitized = JsonObject()
             for ((key, value) in root.entrySet()) {
                 if (isForbiddenKey(key)) continue
 
                 if (key == "downloadSettings" && value.isJsonObject) {
-                    val cleanDl = sanitizeDownloadSettings(value.asJsonObject)
+                    val cleanDl = sanitizeDownloadSettings(value.asJsonObject, depth = 2)
                     if (cleanDl != null) {
                         sanitized.add(key, cleanDl)
                     }
                 } else if (value.isJsonObject) {
-                    sanitized.add(key, sanitizeGenericObject(value.asJsonObject))
+                    val child = sanitizeGenericObject(value.asJsonObject, depth = 2)
+                    if (child.size() > 0) {
+                        sanitized.add(key, child)
+                    }
                 } else {
                     sanitized.add(key, value)
                 }
@@ -107,12 +111,18 @@ object XhttpExtraSanitizer {
         return lower in FORBIDDEN_KEYS
     }
 
-    private fun sanitizeGenericObject(obj: JsonObject): JsonObject {
+    private fun sanitizeGenericObject(obj: JsonObject, depth: Int = 1): JsonObject {
+        if (depth >= MAX_DEPTH) {
+            return JsonObject()
+        }
         val clean = JsonObject()
         for ((k, v) in obj.entrySet()) {
             if (isForbiddenKey(k)) continue
             if (v.isJsonObject) {
-                clean.add(k, sanitizeGenericObject(v.asJsonObject))
+                val child = sanitizeGenericObject(v.asJsonObject, depth + 1)
+                if (child.size() > 0) {
+                    clean.add(k, child)
+                }
             } else {
                 clean.add(k, v)
             }
@@ -125,7 +135,7 @@ object XhttpExtraSanitizer {
      * Returns null (dropping downloadSettings) if address is blank or loopback/private,
      * if port is invalid, or if required security settings (tlsSettings/realitySettings) are missing.
      */
-    fun sanitizeDownloadSettings(dlObj: JsonObject): JsonObject? {
+    fun sanitizeDownloadSettings(dlObj: JsonObject, depth: Int = 2): JsonObject? {
         return try {
             val addressElem = dlObj.get("address")
             val address = if (addressElem != null && addressElem.isJsonPrimitive && addressElem.asJsonPrimitive.isString) {
@@ -203,7 +213,7 @@ object XhttpExtraSanitizer {
                 val xhttp = JsonObject()
                 for ((xk, xv) in dlObj.getAsJsonObject("xhttpSettings").entrySet()) {
                     if (xk == "extra" && xv.isJsonObject) {
-                        val subExtra = sanitizeGenericObject(xv.asJsonObject)
+                        val subExtra = sanitizeGenericObject(xv.asJsonObject, depth = depth + 2)
                         subExtra.remove("downloadSettings")
                         xhttp.add("extra", subExtra)
                     } else if (xk in ALLOWED_DL_XHTTP_KEYS && !isForbiddenKey(xk)) {
