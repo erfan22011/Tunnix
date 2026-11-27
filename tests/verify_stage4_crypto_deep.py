@@ -91,7 +91,7 @@ print("✅ Test 2.1 (Roundtrip with 20 random payloads): PASSED")
 # Test 2.2: Dynamic Random IV uniqueness
 ciphertexts = set()
 ivs = set()
-sample_plain = "https://sb.tootcloud.shop:2096/sub/iygsr9fn68393003"
+sample_plain = "https://sb.tootcloud.shop:2096/sub/dummy_token_12345678"
 for _ in range(500):
     enc = kotlin_gcm_encrypt(sample_plain, derived_aes_key)
     assert enc not in ciphertexts, "Ciphertext collision detected! IV is not dynamic."

@@ -39,8 +39,8 @@ object TunInterfaceBuilder {
         try {
             builder.addAddress(VPN_IPV6_ADDRESS, VPN_IPV6_PREFIX)
             builder.addRoute("::", 0)
-        } catch (_: Exception) {
-            // Some devices don't have IPv6 TUN support enabled
+        } catch (e: Exception) {
+            android.util.Log.w("TunInterfaceBuilder", "IPv6 TUN configuration failed on this device", e)
         }
 
         // 5. Secure DNS

@@ -237,9 +237,13 @@ class TunnixVpnService : VpnService() {
     }
 
     private fun handleError(message: String, cause: Throwable? = null) {
+        val wasConnected = tunDescriptor != null || VpnTunnelManager.vpnState.value is VpnState.Connected
         val ipOrDomainRegex = "(?:\\d{1,3}(?:\\.\\d{1,3}){3}|(?:[a-zA-Z0-9-]+\\.)+[a-zA-Z]{2,})(?::\\d+)?"
         val sanitized = message.replace(Regex(ipOrDomainRegex), "[server]")
         val errState = VpnState.Error(sanitized, cause)
+        if (wasConnected) {
+            VpnNotificationHelper.showDisconnectedNotification(this, sanitized)
+        }
         stopTunnel(targetError = errState)
     }
 

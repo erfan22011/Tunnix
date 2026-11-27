@@ -115,8 +115,8 @@ ok, _ = normalize_and_validate("https://10.0.0.1:8080/sub/abc1234")
 assert not ok
 
 # Case E: Valid Token
-ok, res = normalize_and_validate("iygsr9fn68393003")
-assert ok and res == "https://sb.tootcloud.shop:2096/sub/iygsr9fn68393003"
+ok, res = normalize_and_validate("dummy_token_12345678")
+assert ok and res == "https://sb.tootcloud.shop:2096/sub/dummy_token_12345678"
 
 # Case F: Invalid Token with Path Traversal
 ok, _ = normalize_and_validate("../../../etc/passwd")

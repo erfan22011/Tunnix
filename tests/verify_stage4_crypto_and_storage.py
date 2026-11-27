@@ -56,7 +56,7 @@ import os
 key = AESGCM.generate_key(bit_length=256)
 aesgcm = AESGCM(key)
 
-data_plain = "https://sb.tootcloud.shop:2096/sub/iygsr9fn68393003"
+data_plain = "https://sb.tootcloud.shop:2096/sub/dummy_token_12345678"
 
 # Simulation A: Dynamic IV creates different ciphertexts
 iv1 = os.urandom(12)

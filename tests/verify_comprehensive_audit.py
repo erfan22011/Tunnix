@@ -57,9 +57,9 @@ print("✓ 7. LocalSecurityCipher: hardcoded seed eliminated, fail-closed securi
 # 8. XhttpConfigModifier
 with open('config-modifier/src/main/kotlin/com/tunnix/modifier/XhttpConfigModifier.kt', encoding='utf-8') as f:
     mod_code = f.read()
-assert 'SubscriptionDomainRules.isHostAllowed(server.address)' in mod_code
-assert 'if (server.downloadSettings != null) return false' in mod_code
-print("✓ 8. XhttpConfigModifier: host verification and upstream setting preservation")
+assert 'IpAddressSecurity.isPrivateOrLoopback' in mod_code
+assert 'DownloadSettingsResolver.resolve' in mod_code
+print("✓ 8. XhttpConfigModifier: loopback/private defense and unified DownloadSettingsResolver")
 
 # 9. ServerConfig
 with open('core-models/src/main/kotlin/com/tunnix/core/models/ServerConfig.kt', encoding='utf-8') as f:

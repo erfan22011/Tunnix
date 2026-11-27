@@ -21,7 +21,7 @@ def run_tests():
     # 1. Valid Subscription & Domain Whitelist
     allowed_domains = ['tootcloud.shop', 'jorqino.ir', 'genus.ir', 'pelqexa.ir']
     valid_sub_urls = [
-        "https://sb.tootcloud.shop:2096/sub/iygsr9fn68393003",
+        "https://sb.tootcloud.shop:2096/sub/dummy_token_12345678",
         "https://sub.jorqino.ir/sub/token123",
         "https://ovv.genus.ir:2053/sub/abc",
         "https://cdn.pelqexa.ir/sub/xyz"
@@ -48,9 +48,9 @@ def run_tests():
     print("[TEST 02/25 PASSED] Invalid Domains Rejection")
 
     # 3. Smart Token Completion
-    token = "iygsr9fn68393003"
+    token = "dummy_token_12345678"
     completed = f"https://sb.tootcloud.shop:2096/sub/{token}"
-    assert completed == "https://sb.tootcloud.shop:2096/sub/iygsr9fn68393003"
+    assert completed == "https://sb.tootcloud.shop:2096/sub/dummy_token_12345678"
     passed += 1
     print("[TEST 03/25 PASSED] Smart Token/Redeem Code Completion")
 

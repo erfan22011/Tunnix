@@ -14,7 +14,9 @@ class TunnixApplication : Application() {
         try {
             val defaultHandler = Thread.getDefaultUncaughtExceptionHandler()
             Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
-                android.util.Log.e("TunnixApp", "Uncaught exception on thread: ${thread.name}", throwable)
+                if (BuildConfig.DEBUG) {
+                    android.util.Log.e("TunnixApp", "Uncaught exception on thread: ${thread.name}", throwable)
+                }
                 defaultHandler?.uncaughtException(thread, throwable)
             }
         } catch (_: Throwable) {}

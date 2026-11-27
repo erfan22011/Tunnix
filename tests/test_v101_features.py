@@ -19,7 +19,7 @@ def test_shadowsocks_parsing():
     host, port = host_port.split(':', 1)
     
     assert method == "chacha20-ietf-poly1305"
-    assert password == "n1r8bavu8028p6bz"
+    assert password == "dummy_pass_abcdef12"
     assert host == "ir.jorqino.ir"
     assert int(port) == 443
     print("✅ Shadowsocks parsing verified: method=", method, "password=", password, "host=", host, "port=", port)

@@ -6,7 +6,7 @@ Comprehensive Verification Suite for Tunnix v1.0.7 / v1.0.8 Fixes:
    - Dual-layer SSL TrustManager & HostnameVerifier on custom port 2096
    - Live endpoint verification for tootcloud.shop:2096 and pelqexa.ir:2096
 2. Code & URL Completion:
-   - Redeem code expansion ('iygsr9fn64n0zxsq' -> 'https://sb.tootcloud.shop:2096/sub/iygsr9fn64n0zxsq')
+   - Redeem code expansion ('dummy_token_87654321' -> 'https://sb.tootcloud.shop:2096/sub/dummy_token_87654321')
    - Missing scheme handling ('ovv.pelqexa.ir:2096/...' -> 'https://ovv.pelqexa.ir:2096/...')
    - Custom multi-segment paths ('/jbutuijo6w4k4v50/3tgs1glkywe5u5cc')
 3. Bypass Iran Connection Fix:
@@ -31,7 +31,7 @@ from pathlib import Path
 def test_live_subscription_endpoints():
     print("[1/5] Testing Live Subscription Endpoints...")
     test_urls = [
-        "https://sb.tootcloud.shop:2096/sub/iygsr9fn64n0zxsq",
+        "https://sb.tootcloud.shop:2096/sub/dummy_token_87654321",
         "https://ovv.pelqexa.ir:2096/jbutuijo6w4k4v50/3tgs1glkywe5u5cc"
     ]
     ctx = ssl.create_default_context()

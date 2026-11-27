@@ -59,6 +59,7 @@ object VpnNotificationHelper {
             .setContentIntent(openAppPendingIntent)
             .setOngoing(vpnState is VpnState.Connected || vpnState is VpnState.Connecting)
             .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
             .setCategory(NotificationCompat.CATEGORY_SERVICE)
 
         if (vpnState is VpnState.Connected || vpnState is VpnState.Connecting) {
@@ -70,6 +71,19 @@ object VpnNotificationHelper {
         }
 
         return builder.build()
+    }
+
+    fun showDisconnectedNotification(context: Context, reason: String? = null) {
+        ensureNotificationChannel(context)
+        val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager ?: return
+        val builder = NotificationCompat.Builder(context, CHANNEL_ID)
+            .setSmallIcon(android.R.drawable.ic_lock_lock)
+            .setContentTitle("Tunnix · Disconnected / اتصال VPN قطع شد")
+            .setContentText(reason ?: "اتصال تونل امن متوقف شد / Secure tunnel disconnected")
+            .setAutoCancel(true)
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
+        nm.notify(NOTIFICATION_ID + 1, builder.build())
     }
 
     private fun ensureNotificationChannel(context: Context) {

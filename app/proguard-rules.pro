@@ -1,7 +1,13 @@
 # Tunnix Proguard Rules
 
--keep class com.tunnix.** { *; }
--keep interface com.tunnix.** { *; }
+# Keep Gson serialization models and data classes
+-keep class com.tunnix.core.models.** { *; }
+-keep class * implements java.io.Serializable { *; }
+-keepclassmembers class * {
+    @com.google.gson.annotations.SerializedName <fields>;
+}
+
+# Keep Xray/v2ray native core JNI interfaces
 -keep class libxray.** { *; }
 -keep class libv2ray.** { *; }
 -keep class go.** { *; }
@@ -10,11 +16,6 @@
 # Compose & Material Icons
 -keep class androidx.compose.material.icons.** { *; }
 -dontwarn androidx.compose.material.icons.**
-
-# Crypto & KeyStore
--keep class javax.crypto.** { *; }
--keep class java.security.** { *; }
--keep class android.security.keystore.** { *; }
 
 # Keep native methods
 -keepclasseswithmembernames class * {
