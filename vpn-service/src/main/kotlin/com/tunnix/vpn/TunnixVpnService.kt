@@ -145,9 +145,8 @@ class TunnixVpnService : VpnService() {
                     }
                     val tunFd = tunDescriptor!!.fd
 
-                    // 5. Initialize Xray environment, assets & generate JSON config on IO dispatcher
+                    // 5. Initialize Xray environment & generate JSON config on IO dispatcher
                     val configJson = withContext(Dispatchers.IO) {
-                        copyAssetsIfNeeded()
                         XrayCoreController.initEnvironment(filesDir)
                         val dlConfig = CentralConfigRepository.getConfig()
                         XrayConfigGenerator.generate(server, customDownloadSettings = dlConfig)
@@ -292,23 +291,6 @@ class TunnixVpnService : VpnService() {
             networkCallback?.let { connectivityManager?.unregisterNetworkCallback(it) }
         } catch (_: Exception) {}
         networkCallback = null
-    }
-
-    private suspend fun copyAssetsIfNeeded() = withContext(Dispatchers.IO) {
-        val assetDir = java.io.File(filesDir, "xray_assets")
-        if (!assetDir.exists()) assetDir.mkdirs()
-        listOf("geoip.dat", "geosite.dat", "geoip-only-cn-private.dat").forEach { filename ->
-            val dest = java.io.File(assetDir, filename)
-            if (!dest.exists() || dest.length() == 0L) {
-                try {
-                    assets.open(filename).use { input ->
-                        dest.outputStream().use { output ->
-                            input.copyTo(output)
-                        }
-                    }
-                } catch (_: Exception) {}
-            }
-        }
     }
 
     override fun onDestroy() {

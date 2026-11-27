@@ -7,7 +7,7 @@ class SubscriptionDomainRulesTest {
 
     @Test
     fun `test valid full URLs with allowed domains`() {
-        val validUrl1 = "https://sb.tootcloud.shop:2096/sub/iygsr9fn68393003"
+        val validUrl1 = "https://sb.tootcloud.shop:2096/sub/sample_sub_token_12345"
         val res1 = SubscriptionDomainRules.normalizeAndValidate(validUrl1)
         assertTrue(res1.isSuccess)
         assertEquals(validUrl1, res1.getOrNull())
@@ -35,7 +35,7 @@ class SubscriptionDomainRulesTest {
 
     @Test
     fun `test reject plain HTTP URLs`() {
-        val httpUrl = "http://sb.tootcloud.shop:2096/sub/iygsr9fn68393003"
+        val httpUrl = "http://sb.tootcloud.shop:2096/sub/sample_sub_token_12345"
         val res = SubscriptionDomainRules.normalizeAndValidate(httpUrl)
         assertTrue(res.isFailure)
         assertTrue(res.exceptionOrNull()?.message?.contains("HTTPS") == true)
@@ -119,10 +119,10 @@ class SubscriptionDomainRulesTest {
 
     @Test
     fun `test redeem code completion`() {
-        val token = "iygsr9fn68393003"
+        val token = "sample_sub_token_12345"
         val res = SubscriptionDomainRules.normalizeAndValidate(token)
         assertTrue(res.isSuccess)
-        val expected = "https://sb.tootcloud.shop:2096/sub/iygsr9fn68393003"
+        val expected = "https://sb.tootcloud.shop:2096/sub/sample_sub_token_12345"
         assertEquals(expected, res.getOrNull())
     }
 
