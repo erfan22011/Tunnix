@@ -39,6 +39,7 @@ class SubscriptionFetcher(
         while (true) {
             val request = Request.Builder()
                 .url(currentUrl)
+                // Keep v2rayNG in User-Agent for compatibility with upstream subscription panels and distributors
                 .header("User-Agent", "Tunnix/1.0.0 (Android; v2rayNG/1.8.12)")
                 .header("Accept", "*/*")
                 .build()

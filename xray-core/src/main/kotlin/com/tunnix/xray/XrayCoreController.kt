@@ -16,7 +16,11 @@ object XrayCoreController {
 
     private val isCoreRunning = AtomicBoolean(false)
     private val lifecycleMutex = Mutex()
+
+    @Volatile
     private var activeConfigJson: String? = null
+
+    @Volatile
     private var coreController: libv2ray.CoreController? = null
 
     /**
@@ -27,7 +31,9 @@ object XrayCoreController {
     var bypassNativeCoreForTesting: Boolean = false
 
     // Real-time counter caches for traffic stats
+    @Volatile
     private var lastUplinkBytes: Long = 0L
+    @Volatile
     private var lastDownlinkBytes: Long = 0L
 
     /**
@@ -131,6 +137,10 @@ object XrayCoreController {
 
     fun isRunning(): Boolean = isCoreRunning.get()
 
+    /**
+     * Returns the active Xray JSON configuration.
+     * WARNING: Contains sensitive runtime credentials (passwords, UUIDs, secret tokens).
+     */
     fun getActiveConfig(): String? = activeConfigJson
 
     /**

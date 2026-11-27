@@ -200,8 +200,9 @@ fun MainScreen(
             uploadLabel = if (isFa) "آپلود" else "Upload"
         )
 
-        // Non-blocking IPv6 leak warning (only shown when Connected and device failed IPv6 TUN)
-        if (isConnected && ipv6Protected == false) {
+        // Non-blocking IPv6 leak warning (shown when Connected or Connecting if device failed IPv6 TUN)
+        val showIpv6Warning = (isConnected || isConnecting) && ipv6Protected == false
+        if (showIpv6Warning) {
             Spacer(modifier = Modifier.height(14.dp))
             GlassCard(
                 modifier = Modifier.fillMaxWidth()
@@ -219,9 +220,9 @@ fun MainScreen(
                     Spacer(modifier = Modifier.width(10.dp))
                     Text(
                         text = if (isFa)
-                            "هشدار: IPv6 روی این دستگاه تحت پوشش تونل نیست؛ برای جلوگیری از نشت، IPv6 را در تنظیمات شبکه/سیم‌کارت غیرفعال کنید یا در تنظیمات اندروید گزینه‌های Always-on و Block connections without VPN را روشن کنید."
+                            "هشدار: IPv6 روی این دستگاه تحت پوشش تونل نیست؛ برای جلوگیری از نشت ترافیک، IPv6 را در تنظیمات سیم‌کارت/APN غیرفعال نمایید."
                         else
-                            "Warning: IPv6 is not routed through the tunnel on this device. To prevent leaks, disable IPv6 in APN settings or enable Always-on VPN + Block connections without VPN in Android settings.",
+                            "Warning: IPv6 is not routed through the tunnel on this device. To prevent leaks, disable IPv6 in APN / SIM settings.",
                         color = TunnixStyle.glass.textPrimary,
                         fontSize = 12.sp,
                         lineHeight = 17.sp

@@ -13,8 +13,11 @@ import com.tunnix.core.models.AppLanguage
 import com.tunnix.core.models.DownloadSettingsConfig
 import com.tunnix.core.models.ServerConfig
 import com.tunnix.core.models.ThemeMode
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "tunnix_preferences")
 
@@ -94,13 +97,29 @@ class AppSettingsDataStore(private val context: Context) {
     val preferencesFlow: Flow<AppPreferences> = context.dataStore.data.map { prefs ->
         val rawSubUrl = prefs[Keys.SUBSCRIPTION_URL] ?: ""
         val subUrl = if (rawSubUrl.isNotBlank()) {
-            try {
-                LocalSecurityCipher.decrypt(rawSubUrl)
-            } catch (e: SecurityException) {
-                // If encrypted data is corrupted or tampered, reset to empty (fail-safe)
-                ""
-            } catch (_: Throwable) {
-                ""
+            if (rawSubUrl.startsWith(LocalSecurityCipher.ENC_PREFIX)) {
+                try {
+                    LocalSecurityCipher.decrypt(rawSubUrl)
+                } catch (e: SecurityException) {
+                    // If encrypted data is corrupted or tampered, reset to empty (fail-safe)
+                    ""
+                } catch (_: Throwable) {
+                    ""
+                }
+            } else {
+                // One-time legacy migration: if encryption succeeds, save encrypted and return plaintext
+                try {
+                    val encrypted = LocalSecurityCipher.encrypt(rawSubUrl)
+                    kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+                        try {
+                            context.dataStore.edit { it[Keys.SUBSCRIPTION_URL] = encrypted }
+                        } catch (_: Throwable) {}
+                    }
+                    rawSubUrl
+                } catch (_: Throwable) {
+                    // Cannot securely encrypt on this device -> do not trust or keep plaintext
+                    ""
+                }
             }
         } else {
             ""
@@ -129,12 +148,27 @@ class AppSettingsDataStore(private val context: Context) {
 
         val rawServersJson = prefs[Keys.CACHED_SERVERS]
         val serversJson = if (!rawServersJson.isNullOrBlank()) {
-            try {
-                LocalSecurityCipher.decrypt(rawServersJson)
-            } catch (e: SecurityException) {
-                null
-            } catch (_: Throwable) {
-                null
+            if (rawServersJson.startsWith(LocalSecurityCipher.ENC_PREFIX)) {
+                try {
+                    LocalSecurityCipher.decrypt(rawServersJson)
+                } catch (e: SecurityException) {
+                    null
+                } catch (_: Throwable) {
+                    null
+                }
+            } else {
+                // One-time legacy migration for server cache
+                try {
+                    val encrypted = LocalSecurityCipher.encrypt(rawServersJson)
+                    kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+                        try {
+                            context.dataStore.edit { it[Keys.CACHED_SERVERS] = encrypted }
+                        } catch (_: Throwable) {}
+                    }
+                    rawServersJson
+                } catch (_: Throwable) {
+                    null
+                }
             }
         } else {
             null
@@ -162,16 +196,12 @@ class AppSettingsDataStore(private val context: Context) {
     }
 
     suspend fun saveSubscriptionUrl(url: String) {
-        setCachedHasSubscription(context, url.isNotBlank())
         val encrypted = if (url.isNotBlank()) {
-            try {
-                LocalSecurityCipher.encrypt(url)
-            } catch (_: Throwable) {
-                url
-            }
+            LocalSecurityCipher.encrypt(url)
         } else {
             ""
         }
+        setCachedHasSubscription(context, url.isNotBlank())
         context.dataStore.edit { it[Keys.SUBSCRIPTION_URL] = encrypted }
     }
 
@@ -182,11 +212,7 @@ class AppSettingsDataStore(private val context: Context) {
     suspend fun saveCachedServers(servers: List<ServerConfig>) {
         val json = gson.toJson(servers)
         val encrypted = if (json.isNotBlank()) {
-            try {
-                LocalSecurityCipher.encrypt(json)
-            } catch (_: Throwable) {
-                json
-            }
+            LocalSecurityCipher.encrypt(json)
         } else {
             ""
         }

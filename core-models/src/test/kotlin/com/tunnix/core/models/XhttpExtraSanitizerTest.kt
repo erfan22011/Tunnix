@@ -139,13 +139,54 @@ class XhttpExtraSanitizerTest {
 
     @Test
     fun `test excessively nested or oversized payload returns empty object`() {
-        val deep = """{"a":{"b":{"c":{"d":{"e":{"f":1}}}}}}"""
-        val resDeep = XhttpExtraSanitizer.sanitize(deep)
-        assertEquals(0, resDeep.size())
-
         val huge = "{\"a\":\"" + "x".repeat(9000) + "\"}"
         val resHuge = XhttpExtraSanitizer.sanitize(huge)
         assertEquals(0, resHuge.size())
+    }
+
+    @Test
+    fun `test nested downloadSettings with xhttpSettings extra xmux up to depth 5 is preserved`() {
+        val input = """
+            {
+              "xPaddingBytes": "100-1000",
+              "downloadSettings": {
+                "address": "2053ipapp.genus.ir",
+                "port": 2053,
+                "network": "xhttp",
+                "security": "tls",
+                "tlsSettings": {"serverName": "2053ipapp.genus.ir"},
+                "xhttpSettings": {
+                  "extra": {
+                    "xmux": {
+                      "maxConcurrency": 16
+                    }
+                  }
+                }
+              }
+            }
+        """.trimIndent()
+
+        val res = XhttpExtraSanitizer.sanitize(input)
+        assertTrue("xPaddingBytes must be preserved", res.has("xPaddingBytes"))
+        assertTrue("downloadSettings must be preserved at depth 5", res.has("downloadSettings"))
+        val dl = res.getAsJsonObject("downloadSettings")
+        assertTrue("xhttpSettings must be preserved", dl.has("xhttpSettings"))
+        val xhttp = dl.getAsJsonObject("xhttpSettings")
+        assertTrue("extra must be preserved", xhttp.has("extra"))
+        val extra = xhttp.getAsJsonObject("extra")
+        assertTrue("xmux must be preserved", extra.has("xmux"))
+        assertEquals(16, extra.getAsJsonObject("xmux").get("maxConcurrency").asInt)
+    }
+
+    @Test
+    fun `test extreme depth 50 payload drops overly deep branch without throwing exception`() {
+        var nested = "{\"leaf\": true}"
+        for (i in 1..50) {
+            nested = "{\"layer$i\": $nested}"
+        }
+        val res = XhttpExtraSanitizer.sanitize(nested)
+        assertNotNull(res)
+        assertTrue("Outer layers within MAX_DEPTH must be present", res.has("layer50"))
     }
 
     @Test

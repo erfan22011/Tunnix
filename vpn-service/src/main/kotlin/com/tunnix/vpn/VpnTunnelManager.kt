@@ -71,7 +71,11 @@ object VpnTunnelManager {
         val intent = Intent(context, TunnixVpnService::class.java).apply {
             action = ACTION_STOP
         }
-        context.startService(intent)
+        try {
+            context.startService(intent)
+        } catch (e: Exception) {
+            // Guard against IllegalStateException if app is in background
+        }
         _isIpv6Supported.value = null
         updateState(VpnState.Disconnected)
         activeServer = null

@@ -183,9 +183,11 @@ class TunnixVpnService : VpnService() {
                 } finally {
                     // If coroutine was cancelled before completing successfully, clean up opened resources
                     if (!isActive) {
-                        closeTunSilently()
-                        withContext(Dispatchers.IO) {
-                            XrayCoreController.stop()
+                        withContext(NonCancellable) {
+                            closeTunSilently()
+                            withContext(Dispatchers.IO) {
+                                XrayCoreController.stop()
+                            }
                         }
                     }
                 }

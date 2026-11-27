@@ -223,9 +223,9 @@ fun SettingsScreen(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // Section 3: Kill-Switch & Traffic Leak Protection Guide
+        // Section 3: Traffic Leak Protection Guide & Always-on status
         Text(
-            text = if (isFa) "امنیت و کیل‌سوئیچ (Kill-Switch)" else "Security & Kill-Switch",
+            text = if (isFa) "امنیت و نشت ترافیک" else "Security & Leak Protection",
             color = TunnixStyle.glass.textSecondary,
             fontSize = 14.sp
         )
@@ -235,7 +235,7 @@ fun SettingsScreen(
         GlassCard(modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Text(
-                    text = if (isFa) "حفاظت دائمی در برابر نشت ترافیک" else "Full Leak Protection",
+                    text = if (isFa) "راهنمای پیشگیری از نشت ترافیک" else "Traffic Leak Prevention",
                     color = EmeraldGreen,
                     fontSize = 15.sp,
                     fontWeight = FontWeight.SemiBold
@@ -243,9 +243,9 @@ fun SettingsScreen(
                 Spacer(modifier = Modifier.height(6.dp))
                 Text(
                     text = if (isFa)
-                        "برای فعال‌سازی کامل Kill-Switch و جلوگیری از هرگونه نشت IPv4/IPv6 هنگام قطع ناگهانی یا سوئیچ شبکه، به مسیر تنظیمات گوشی بروید:\nSettings > Network & internet > VPN > Tunnix\nو گزینه‌های Always-on VPN و Block connections without VPN را فعال نمایید."
+                        "قابلیت Always-on VPN در این نسخه به دلیل عدم پردازش رویدادهای سیستمی پشتیبانی نمی‌شود. برای جلوگیری از نشت ترافیک، در دستگاه‌هایی که اینترفیس آنها از IPv6 پشتیبانی نمی‌کند، لطفاً پروتکل APN را در تنظیمات سیم‌کارت بر روی IPv4 تنظیم فرمایید."
                     else
-                        "To enable full system-level Kill-Switch and block all traffic leaks if disconnected or switching networks, go to:\nSettings > Network & internet > VPN > Tunnix\nand enable 'Always-on VPN' and 'Block connections without VPN'.",
+                        "Always-on VPN is not supported in this version. To prevent traffic leaks on devices where IPv6 TUN is unsupported, please configure your SIM card APN protocol to IPv4.",
                     color = TunnixStyle.glass.textSecondary,
                     fontSize = 13.sp,
                     lineHeight = 19.sp
