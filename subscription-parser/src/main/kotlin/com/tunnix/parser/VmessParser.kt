@@ -42,9 +42,11 @@ object VmessParser {
                 else -> NetworkType.UNKNOWN
             }
 
+            val serverName = name.ifBlank { "$address:$port" }.take(ServerConfig.MAX_NAME_LENGTH)
+
             ServerConfig(
                 id = UUID.nameUUIDFromBytes(trimmed.toByteArray(StandardCharsets.UTF_8)).toString(),
-                name = name,
+                name = serverName,
                 address = address,
                 port = port,
                 protocol = ProtocolType.VMESS,

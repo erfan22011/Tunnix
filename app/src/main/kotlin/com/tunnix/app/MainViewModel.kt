@@ -115,9 +115,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     rawServers = prefs.cachedServers
                 }
 
-                val baseList = if (rawServers.isNotEmpty()) rawServers else prefs.cachedServers
+                val baseList = (if (rawServers.isNotEmpty()) rawServers else prefs.cachedServers).distinctBy { it.id }
                 val updatedServers = if (baseList.isNotEmpty()) {
-                    XhttpConfigModifier.modifyAll(baseList, prefs.downloadSettings)
+                    XhttpConfigModifier.modifyAll(baseList, prefs.downloadSettings).distinctBy { it.id }
                 } else {
                     _uiState.value.servers
                 }
@@ -188,14 +188,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
             val result = fetcher.fetch(urlOrToken)
             if (result.isSuccess) {
-                val fetchedServers = result.getOrThrow()
+                val fetchedServers = result.getOrThrow().distinctBy { it.id }
                 if (fetchedServers.isNotEmpty()) {
                     rawServers = fetchedServers
                     // Persist valid server list into local cache
                     dataStore.saveCachedServers(fetchedServers)
 
                     val currentConfig = _uiState.value.downloadSettings
-                    val modifiedServers = XhttpConfigModifier.modifyAll(fetchedServers, currentConfig)
+                    val modifiedServers = XhttpConfigModifier.modifyAll(fetchedServers, currentConfig).distinctBy { it.id }
 
                     // PRESERVE CURRENT USER SELECTION:
                     // If the user selected a server, keep that selection active!

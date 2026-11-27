@@ -68,7 +68,7 @@ object TrojanParser {
             val alpn = queryParams["alpn"] ?: ""
             val fp = queryParams["fp"] ?: ""
 
-            val serverName = remark.ifBlank { "$address:$port" }
+            val serverName = remark.ifBlank { "$address:$port" }.take(ServerConfig.MAX_NAME_LENGTH)
 
             ServerConfig(
                 id = UUID.nameUUIDFromBytes(trimmed.toByteArray(StandardCharsets.UTF_8)).toString(),

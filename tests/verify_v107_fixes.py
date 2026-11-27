@@ -83,7 +83,7 @@ def test_subscription_fetcher_resiliency():
     print("  ✓ Manual loop validates all redirect hops against allowed domains and HTTPS")
 
 def test_bypass_iran_xray_config():
-    print("\n[4/5] Testing Bypass Iran Xray Configuration...")
+    print("\n[4/5] Testing Xray Routing & DNS Configuration...")
     xray_path = Path("xray-core/src/main/kotlin/com/tunnix/xray/XrayConfigGenerator.kt")
     content = xray_path.read_text(encoding="utf-8")
 
@@ -94,22 +94,19 @@ def test_bypass_iran_xray_config():
     # 2. domainStrategy AsIs
     assert 'addProperty("domainStrategy", "AsIs")' in content, "domainStrategy must be AsIs"
 
-    # 3. DNS configuration
-    assert 'add("localhost")' in content, "DNS must use localhost"
-    assert 'addProperty("address", "1.1.1.1")' not in content, "Blocking port 53 UDP DNS must be removed"
+    # 3. DNS configuration (Proxy-routed secure DNS)
+    assert 'add("localhost")' not in content, "DNS localhost must be removed to prevent unencrypted leaks"
+    assert 'add("1.1.1.1")' in content, "1.1.1.1 DNS must be configured"
+    assert 'add("8.8.8.8")' in content, "8.8.8.8 DNS must be configured"
 
-    # 4. In-memory domestic rules
-    assert r"regexp:.*\.ir$" in content or r"regexp:.*\\.ir$" in content, "Regex for .ir domains must exist"
-    assert "domain:ir" in content, "domain:ir rule must exist"
-    assert "domain:digikala.com" in content, "Iranian domains list must exist"
+    # 4. Routing: 100% proxy except private networks
+    assert 'addProperty("outboundTag", "direct")' in content, "Direct outbound for private IPs must exist"
+    assert '10.0.0.0/8' in content, "Private network rule must exist"
 
-    # 5. Exempt rules for proxy
-    assert "exemptRule" in content, "Exempt rule for server address/SNI must exist"
     print("  ✓ Zero dependencies on missing geoip.dat / geosite.dat files")
-    print("  ✓ domainStrategy set to 'AsIs' (eliminates UDP 53 DNS hang)")
-    print("  ✓ DNS uses 'localhost' without blocking foreign UDP 53 calls")
-    print("  ✓ Complete domestic Iranian services routed direct in-memory")
-    print("  ✓ Server endpoints strictly exempted to proxy outbound")
+    print("  ✓ domainStrategy set to 'AsIs'")
+    print("  ✓ DNS uses secure 1.1.1.1 & 8.8.8.8 routed through proxy")
+    print("  ✓ All non-private traffic routes 100% through proxy")
 
 def test_zero_leak_error_sanitization():
     print("\n[5/5] Testing Error Message Leak Prevention...")

@@ -50,32 +50,36 @@ data class ServerConfig(
 
     val displayName: String
         get() {
-            val rawName = name.trim()
+            // Anti-ReDoS & UI protection: bound rawName to at most 100 chars
+            val rawName = name.trim().take(MAX_NAME_LENGTH)
             val fallback = if (countryCode.isNotBlank() && countryCode != "UN") "Server $countryCode" else "Tunnix Server"
             if (rawName.isBlank()) {
                 return fallback
             }
 
-            // Pattern for matching IPv4 addresses and fully-qualified domain names with optional port
-            val ipOrDomainRegex = "(?:\\d{1,3}(?:\\.\\d{1,3}){3}|(?:[a-zA-Z0-9-]+\\.)+[a-zA-Z]{2,})(?::\\d+)?"
-
-            // 1. Exact match of IP or domain (e.g. "ir.jorqino.ir", "1.2.3.4", "1.2.3.4:443")
-            if (rawName.matches(Regex("^$ipOrDomainRegex$"))) {
+            // 1. Exact match of IP or domain
+            if (EXACT_IP_OR_DOMAIN.matches(rawName)) {
                 return fallback
             }
 
-            // 2. Strip bracketed or parenthesized domain or IP in any position:
-            // e.g. "(ovv.pelqexa.ir) Tunnel", "Tunnel (ovv.pelqexa.ir)", "[185.120.45.2] Server"
-            // Does NOT strip valid remarks like "(clone)", "(VIP)", "(US)" since they contain no dots or domain TLD.
-            var s = rawName.replace(Regex("[\\[\\(]\\s*$ipOrDomainRegex\\s*[\\]\\)]"), "")
+            // 2. Strip bracketed or parenthesized domain or IP
+            var s = BRACKETED_IP_OR_DOMAIN.replace(rawName, "")
 
-            // 3. Strip domain or IP delimited by whitespace, hyphen, or pipe in leading, trailing, or middle positions:
-            // e.g. "Tunnel - ovv.pelqexa.ir", "185.120.45.2 Germany", "Germany 185.120.45.2 Fast"
-            s = s.replace(Regex("(?:\\s*[-|]\\s*)?$ipOrDomainRegex(?:\\s*[-|]\\s*)?"), " ")
+            // 3. Strip domain or IP delimited by whitespace, hyphen, or pipe
+            s = DELIMITED_IP_OR_DOMAIN.replace(s, " ")
 
             // 4. Clean up remaining excess whitespace or edge separators
-            s = s.replace(Regex("\\s+"), " ").trim { it <= ' ' || it == '-' || it == '|' }
+            s = EXCESS_WHITESPACE.replace(s, " ").trim { it <= ' ' || it == '-' || it == '|' }
 
             return s.ifBlank { fallback }
         }
+
+    companion object {
+        const val MAX_NAME_LENGTH = 100
+        private const val IP_OR_DOMAIN_PATTERN = "(?:\\d{1,3}(?:\\.\\d{1,3}){3}|(?:[a-zA-Z0-9-]+\\.)+[a-zA-Z]{2,})(?::\\d+)?"
+        private val EXACT_IP_OR_DOMAIN = Regex("^$IP_OR_DOMAIN_PATTERN$")
+        private val BRACKETED_IP_OR_DOMAIN = Regex("[\\[\\(]\\s*$IP_OR_DOMAIN_PATTERN\\s*[\\]\\)]")
+        private val DELIMITED_IP_OR_DOMAIN = Regex("(?:\\s*[-|]\\s*)?$IP_OR_DOMAIN_PATTERN(?:\\s*[-|]\\s*)?")
+        private val EXCESS_WHITESPACE = Regex("\\s+")
+    }
 }

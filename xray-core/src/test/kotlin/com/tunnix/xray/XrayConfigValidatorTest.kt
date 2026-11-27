@@ -132,4 +132,33 @@ class XrayConfigValidatorTest {
         assertFalse(result.isValid)
         assertTrue(result.issues.any { it.contains("downloadSettings") })
     }
+
+    @Test
+    fun `test downloadSettings with loopback or private IP fails validation`() {
+        val ssWithLoopback = """
+            {
+              "inbounds": [{"tag": "tun-in", "protocol": "tun", "port": 0}],
+              "outbounds": [{
+                "tag": "proxy",
+                "protocol": "vless",
+                "settings": {"vnext": [{"address": "ovv.pelqexa.ir", "port": 2053}]},
+                "streamSettings": {
+                  "network": "xhttp",
+                  "xhttpSettings": {},
+                  "downloadSettings": {
+                    "address": "127.0.0.1",
+                    "port": 2053,
+                    "tlsSettings": {},
+                    "xhttpSettings": {}
+                  }
+                }
+              }],
+              "routing": {"rules": [{"outboundTag": "proxy"}]}
+            }
+        """.trimIndent()
+
+        val result = XrayConfigValidator.validate(ssWithLoopback)
+        assertFalse(result.isValid)
+        assertTrue(result.issues.any { it.contains("loopback or private IP") })
+    }
 }

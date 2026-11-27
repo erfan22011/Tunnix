@@ -1,3 +1,4 @@
+val expectedSha256 = "cdfef146218233a31a8b52c8b1016557730d3b63fc121d4c84cacea50e669155"
 val aarFile = file("libv2ray.aar")
 if (!aarFile.exists()) {
     try {
@@ -14,7 +15,23 @@ if (!aarFile.exists()) {
     }
 }
 
-configurations.maybeCreate("default")
 if (aarFile.exists()) {
+    val md = java.security.MessageDigest.getInstance("SHA-256")
+    aarFile.inputStream().use { input ->
+        val buffer = ByteArray(8192)
+        var bytesRead = input.read(buffer)
+        while (bytesRead != -1) {
+            md.update(buffer, 0, bytesRead)
+            bytesRead = input.read(buffer)
+        }
+    }
+    val actualSha256 = md.digest().joinToString("") { "%02x".format(it) }
+    if (!actualSha256.equals(expectedSha256, ignoreCase = true)) {
+        throw GradleException("Security Integrity Check Failed: libv2ray.aar checksum mismatch!\nExpected: $expectedSha256\nActual:   $actualSha256")
+    }
+    println("Verified libv2ray.aar SHA-256 checksum integrity: MATCH")
+    configurations.maybeCreate("default")
     artifacts.add("default", aarFile)
+} else {
+    throw GradleException("libv2ray.aar is missing and could not be retrieved securely!")
 }

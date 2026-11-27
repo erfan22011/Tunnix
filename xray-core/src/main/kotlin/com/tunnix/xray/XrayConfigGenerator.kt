@@ -58,7 +58,6 @@ object XrayConfigGenerator {
         // 4. DNS configuration
         val dns = JsonObject().apply {
             val serversArray = JsonArray().apply {
-                add("localhost")
                 add("1.1.1.1")
                 add("8.8.8.8")
             }
@@ -276,7 +275,8 @@ object XrayConfigGenerator {
         if (sec == "tls") {
             val tlsObj = JsonObject().apply {
                 addProperty("serverName", server.sni.ifBlank { server.host })
-                addProperty("allowInsecure", server.queryParams["allowInsecure"] == "1" || server.queryParams["insecure"] == "1")
+                // Security Hardening: Never allow insecure TLS certificates under any circumstance
+                addProperty("allowInsecure", false)
 
                 // Handle pcs (Pinned Certificate SHA-256)
                 val pcs = server.queryParams["pcs"]?.trim() ?: ""
@@ -379,14 +379,17 @@ object XrayConfigGenerator {
                     addProperty("path", server.path.ifBlank { "/xhttp" })
                     addProperty("mode", server.mode.ifBlank { "auto" })
 
-                    val extraObj = if (server.extraJson.isNotBlank()) {
+                    val extraObj = JsonObject()
+                    if (server.extraJson.isNotBlank()) {
                         try {
-                            com.google.gson.JsonParser.parseString(server.extraJson).asJsonObject
-                        } catch (_: Exception) {
-                            JsonObject()
-                        }
-                    } else {
-                        JsonObject()
+                            val parsed = com.google.gson.JsonParser.parseString(server.extraJson).asJsonObject
+                            val allowedKeys = setOf("xPaddingBytes", "downloadSettings", "scMaxEachPostBytes", "noSSEHeader")
+                            for ((k, v) in parsed.entrySet()) {
+                                if (k in allowedKeys) {
+                                    extraObj.add(k, v)
+                                }
+                            }
+                        } catch (_: Exception) {}
                     }
                     if (server.xPaddingBytes.isNotBlank()) {
                         extraObj.addProperty("xPaddingBytes", server.xPaddingBytes)

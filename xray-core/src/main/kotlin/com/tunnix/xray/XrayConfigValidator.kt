@@ -251,6 +251,8 @@ object XrayConfigValidator {
                     val address = getStringSafe(dl, "address")
                     if (address.isNullOrBlank()) {
                         issues.add("downloadSettings missing 'address'")
+                    } else if (isPrivateOrLoopback(address)) {
+                        issues.add("downloadSettings address cannot be loopback or private IP (SSRF protection)")
                     }
                     if (!isValidPort(dl.get("port"), allowZero = false)) {
                         issues.add("downloadSettings missing or invalid 'port' (must be 1..65535)")
@@ -264,6 +266,27 @@ object XrayConfigValidator {
                 }
             }
         }
+    }
+
+    fun isPrivateOrLoopback(address: String): Boolean {
+        val clean = address.trim().lowercase()
+            .removePrefix("[").removeSuffix("]")
+        if (clean == "localhost" || clean == "127.0.0.1" || clean == "::1" || clean == "0.0.0.0" ||
+            clean.startsWith("127.") || clean.startsWith("10.") || clean.startsWith("192.168.") ||
+            clean.startsWith("169.254.") || clean.startsWith("100.64.") ||
+            clean.endsWith(".local") || clean.endsWith(".internal") || clean.endsWith(".lan")) {
+            return true
+        }
+        if (clean.startsWith("172.")) {
+            val parts = clean.split(".")
+            if (parts.size >= 2) {
+                val secondOctet = parts[1].toIntOrNull()
+                if (secondOctet != null && secondOctet in 16..31) {
+                    return true
+                }
+            }
+        }
+        return false
     }
 
     fun isValidPort(element: JsonElement?, allowZero: Boolean = false): Boolean {

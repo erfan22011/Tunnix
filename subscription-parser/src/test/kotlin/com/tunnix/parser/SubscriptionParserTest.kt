@@ -40,6 +40,32 @@ class SubscriptionParserTest {
         assertEquals("Server-2", servers[1].name)
     }
 
+    @Test
+    fun `test deduplicate identical server lines`() {
+        val raw = """
+            vless://uuid-1@ovv.genus.ir:2053?type=xhttp#Server-1
+            vless://uuid-1@ovv.genus.ir:2053?type=xhttp#Server-1
+            vless://uuid-1@ovv.genus.ir:2053?type=xhttp#Server-1
+            vless://uuid-2@ovv.pelqexa.ir:2053?type=xhttp#Server-2
+        """.trimIndent()
+
+        val servers = SubscriptionParser.parse(raw)
+        assertEquals("Duplicate servers must be deduplicated", 2, servers.size)
+        assertEquals("Server-1", servers[0].name)
+        assertEquals("Server-2", servers[1].name)
+    }
+
+    @Test
+    fun `test ignore excessively long malformed lines`() {
+        val hugeLine = "vless://uuid-1@ovv.genus.ir:2053?type=xhttp#" + "A".repeat(5000)
+        val validLine = "vless://uuid-2@ovv.pelqexa.ir:2053?type=xhttp#Server-Valid"
+        val raw = "$hugeLine\n$validLine"
+
+        val servers = SubscriptionParser.parse(raw)
+        assertEquals("Lines exceeding MAX_LINE_LENGTH must be skipped", 1, servers.size)
+        assertEquals("Server-Valid", servers[0].name)
+    }
+
     @Test(expected = SubscriptionParserException.EmptySubscriptionException::class)
     fun `test empty subscription throws EmptySubscriptionException`() {
         SubscriptionParser.parse("   \r\n  ")
