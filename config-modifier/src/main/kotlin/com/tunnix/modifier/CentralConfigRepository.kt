@@ -7,6 +7,10 @@ import com.tunnix.core.models.DownloadSettingsConfig
 /**
  * Central in-memory repository holding the active runtime XHTTP DownloadSettings config.
  * Provides in-memory obfuscation against casual memory inspection and dynamic runtime updating.
+ *
+ * NOTE ON SECURITY BOUNDARY:
+ * This repository secures download settings in RAM against casual scraping and memory dumps.
+ * It is not a hardware cryptographic boundary.
  */
 object CentralConfigRepository {
 

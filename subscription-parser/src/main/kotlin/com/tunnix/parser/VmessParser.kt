@@ -41,6 +41,13 @@ object VmessParser {
             val alpn = obj.get("alpn")?.asString ?: ""
             val fp = obj.get("fp")?.asString ?: ""
 
+            val scyRaw = obj.get("scy")?.asString?.trim()?.lowercase() ?: "auto"
+            val validScy = setOf("auto", "aes-128-gcm", "chacha20-poly1305", "none", "zero")
+            val scy = if (scyRaw in validScy) scyRaw else "auto"
+
+            val aid = obj.get("aid")?.asInt ?: 0
+            val queryParams = if (aid > 0) mapOf("alterId" to aid.toString()) else emptyMap()
+
             val network = when (net) {
                 "xhttp", "splithttp" -> NetworkType.XHTTP
                 "ws", "websocket" -> NetworkType.WS
@@ -66,6 +73,8 @@ object VmessParser {
                 path = path,
                 alpn = alpn,
                 fingerprint = fp,
+                encryption = scy,
+                queryParams = queryParams,
                 rawUri = trimmed,
                 originalUri = trimmed
             )

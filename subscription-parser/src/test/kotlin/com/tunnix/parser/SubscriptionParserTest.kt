@@ -70,4 +70,16 @@ class SubscriptionParserTest {
     fun `test empty subscription throws EmptySubscriptionException`() {
         SubscriptionParser.parse("   \r\n  ")
     }
+
+    @Test
+    fun `test cap maximum servers at 500`() {
+        val sb = StringBuilder()
+        for (i in 1..550) {
+            sb.append("vless://uuid-$i@server$i.com:443?type=tcp#Server-$i\n")
+        }
+        val servers = SubscriptionParser.parse(sb.toString())
+        assertEquals(500, servers.size)
+        assertEquals("Server-1", servers.first().name)
+        assertEquals("Server-500", servers.last().name)
+    }
 }

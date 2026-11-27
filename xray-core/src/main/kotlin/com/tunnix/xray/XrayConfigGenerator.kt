@@ -216,8 +216,10 @@ object XrayConfigGenerator {
                     val usersArray = JsonArray()
                     val user = JsonObject().apply {
                         addProperty("id", server.uuid)
-                        addProperty("alterId", 0)
-                        addProperty("security", "auto")
+                        val alterId = server.queryParams["alterId"]?.toIntOrNull() ?: 0
+                        addProperty("alterId", alterId)
+                        val security = server.encryption.ifBlank { "auto" }
+                        addProperty("security", security)
                     }
                     usersArray.add(user)
                     add("users", usersArray)

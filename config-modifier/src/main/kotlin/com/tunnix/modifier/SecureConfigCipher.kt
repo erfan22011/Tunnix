@@ -11,6 +11,12 @@ import javax.crypto.spec.SecretKeySpec
 /**
  * Provides authenticated AES-GCM encryption with dynamic random IVs and controlled error handling.
  * Eliminates static IVs, insecure CBC padding, and silent plaintext fallbacks.
+ *
+ * NOTE ON SECURITY BOUNDARY:
+ * This class provides obfuscation and anti-scraping protection for sensitive in-memory assets.
+ * As symmetric keys derived from hardcoded seeds reside within the client binary, this does not
+ * constitute a hardware-backed security boundary or zero-knowledge encryption against determined
+ * local reverse engineers.
  */
 object SecureConfigCipher {
 
