@@ -65,7 +65,6 @@ object XhttpExtraSanitizer {
                 return JsonObject()
             }
             if (extraJson.length > MAX_EXTRA_BYTES) {
-                android.util.Log.d("XhttpExtraSanitizer", "Payload size ${extraJson.length} exceeds limit $MAX_EXTRA_BYTES")
                 return JsonObject()
             }
 
