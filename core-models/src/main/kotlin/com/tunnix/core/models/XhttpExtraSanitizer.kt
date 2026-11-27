@@ -92,9 +92,7 @@ object XhttpExtraSanitizer {
                     }
                 } else if (value.isJsonObject) {
                     val child = sanitizeGenericObject(value.asJsonObject, depth = 2)
-                    if (child.size() > 0) {
-                        sanitized.add(key, child)
-                    }
+                    sanitized.add(key, child)
                 } else {
                     sanitized.add(key, value)
                 }
@@ -120,9 +118,7 @@ object XhttpExtraSanitizer {
             if (isForbiddenKey(k)) continue
             if (v.isJsonObject) {
                 val child = sanitizeGenericObject(v.asJsonObject, depth + 1)
-                if (child.size() > 0) {
-                    clean.add(k, child)
-                }
+                clean.add(k, child)
             } else {
                 clean.add(k, v)
             }
