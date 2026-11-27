@@ -105,6 +105,39 @@ class XhttpExtraSanitizerTest {
     }
 
     @Test
+    fun `test downloadSettings with security tls but missing tlsSettings is dropped safely`() {
+        // P2 requirement: if security is tls but tlsSettings is missing, drop downloadSettings completely
+        val inputWithoutTlsSettings = """
+            {
+              "downloadSettings": {
+                "address": "2053ipapp.genus.ir",
+                "port": 2053,
+                "network": "xhttp",
+                "security": "tls"
+              }
+            }
+        """.trimIndent()
+
+        val res = XhttpExtraSanitizer.sanitize(inputWithoutTlsSettings)
+        assertFalse("downloadSettings must be dropped when security=tls but tlsSettings is absent", res.has("downloadSettings"))
+    }
+
+    @Test
+    fun `test malformed non-primitive types in downloadSettings do not throw exception and drop safely`() {
+        // P3 requirement: non-primitive types in network/security must not throw exception
+        val inputMalformed = """{"downloadSettings":{"address":"a.example.com","port":443,"network":{},"security":[]}}"""
+        val res = XhttpExtraSanitizer.sanitize(inputMalformed)
+        assertFalse("downloadSettings must be dropped when fields are malformed objects/arrays", res.has("downloadSettings"))
+    }
+
+    @Test
+    fun `test non-numeric port in downloadSettings drops safely without exception`() {
+        val inputBadPort = """{"downloadSettings":{"address":"a.example.com","port":"invalid_port","network":"xhttp","security":"none"}}"""
+        val res = XhttpExtraSanitizer.sanitize(inputBadPort)
+        assertFalse("downloadSettings must be dropped when port is non-numeric", res.has("downloadSettings"))
+    }
+
+    @Test
     fun `test excessively nested or oversized payload returns empty object`() {
         val deep = """{"a":{"b":{"c":{"d":{"e":{"f":1}}}}}}"""
         val resDeep = XhttpExtraSanitizer.sanitize(deep)
