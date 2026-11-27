@@ -84,10 +84,17 @@ android {
     }
 
     gradle.taskGraph.whenReady {
-        val hasReleaseTask = allTasks.any { 
-            it.name.contains("assembleRelease", ignoreCase = true) || it.name.contains("bundleRelease", ignoreCase = true)
+        val hasReleasePackagingTask = allTasks.any { 
+            it.name.equals("packageRelease", ignoreCase = true) ||
+            it.name.equals("packageReleaseBundle", ignoreCase = true) ||
+            it.name.equals("assembleRelease", ignoreCase = true) ||
+            it.name.equals("bundleRelease", ignoreCase = true)
         }
-        if (hasReleaseTask) {
+        // Only enforce keystore credentials when an actual release packaging or assembly task is explicitly invoked
+        val isExplicitReleaseBuild = gradle.startParameter.taskNames.any { 
+            it.contains("Release", ignoreCase = true) && !it.contains("test", ignoreCase = true)
+        }
+        if (hasReleasePackagingTask && isExplicitReleaseBuild) {
             val releaseSigning = signingConfigs.getByName("release")
             if (releaseSigning.storeFile == null || !releaseSigning.storeFile!!.exists() || releaseSigning.storePassword.isNullOrBlank()) {
                 throw GradleException(
