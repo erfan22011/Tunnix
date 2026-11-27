@@ -48,6 +48,10 @@ data class ServerConfig(
     val isSelected: Boolean = false
 ) : Serializable {
 
+    val isTransportUnencrypted: Boolean
+        get() = (protocol == ProtocolType.VLESS || protocol == ProtocolType.VMESS || protocol == ProtocolType.TROJAN) &&
+                (security.isBlank() || security.equals("none", ignoreCase = true))
+
     val displayName: String
         get() {
             // Anti-ReDoS & UI protection: bound rawName to at most 100 chars
