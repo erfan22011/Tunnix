@@ -92,4 +92,15 @@ class DownloadSettingsResolverTest {
         assertNull(DownloadSettingsResolver.resolve(vmess6793, DownloadSettingsConfig.DEFAULT))
         assertNull(DownloadSettingsResolver.resolve(ss2053, DownloadSettingsConfig.DEFAULT))
     }
+
+    @Test
+    fun `test non-XHTTP network types on port 2053 and 6793 resolve to null`() {
+        val vlessWs2053 = vlessServer(2053).copy(network = NetworkType.WS)
+        val vlessTcp2053 = vlessServer(2053).copy(network = NetworkType.TCP)
+        val vlessGrpc6793 = vlessServer(6793).copy(network = NetworkType.GRPC)
+
+        assertNull(DownloadSettingsResolver.resolve(vlessWs2053, DownloadSettingsConfig.DEFAULT))
+        assertNull(DownloadSettingsResolver.resolve(vlessTcp2053, DownloadSettingsConfig.DEFAULT))
+        assertNull(DownloadSettingsResolver.resolve(vlessGrpc6793, DownloadSettingsConfig.DEFAULT))
+    }
 }

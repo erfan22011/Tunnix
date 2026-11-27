@@ -32,6 +32,7 @@ fun TunnixNavigation(
     themeMode: ThemeMode = ThemeMode.DARK,
     onThemeChange: (ThemeMode) -> Unit = {},
     vpnState: VpnState = VpnState.Disconnected,
+    ipv6Protected: Boolean? = null,
     trafficStats: TrafficStats = TrafficStats(),
     servers: List<ServerConfig> = emptyList(),
     selectedServer: ServerConfig? = null,
@@ -118,6 +119,7 @@ fun TunnixNavigation(
             composable("main") {
                 MainScreen(
                     vpnState = vpnState,
+                    ipv6Protected = ipv6Protected,
                     trafficStats = trafficStats,
                     servers = servers,
                     selectedServer = selectedServer,

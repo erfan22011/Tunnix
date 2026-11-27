@@ -40,4 +40,30 @@ class VpnTunnelManagerTest {
         assertEquals("1.1.1.1", TunInterfaceBuilder.PRIMARY_DNS)
         assertEquals("8.8.8.8", TunInterfaceBuilder.SECONDARY_DNS)
     }
+
+    @Test
+    fun `test ipv6 supported state tracking and auto reset`() {
+        VpnTunnelManager.updateState(VpnState.Disconnected)
+        assertNull(VpnTunnelManager.isIpv6Supported.value)
+
+        // Simulated TUN creation with IPv6 failure
+        VpnTunnelManager.setIpv6Supported(false)
+        assertEquals(false, VpnTunnelManager.isIpv6Supported.value)
+
+        // Connected state preserves status
+        VpnTunnelManager.updateState(VpnState.Connected("TestServer"))
+        assertEquals(false, VpnTunnelManager.isIpv6Supported.value)
+
+        // Disconnecting resets status to null so it never leaks or flashes
+        VpnTunnelManager.updateState(VpnState.Disconnected)
+        assertNull(VpnTunnelManager.isIpv6Supported.value)
+
+        // Simulated TUN creation with IPv6 success
+        VpnTunnelManager.setIpv6Supported(true)
+        assertEquals(true, VpnTunnelManager.isIpv6Supported.value)
+
+        // Error state also resets status to null
+        VpnTunnelManager.updateState(VpnState.Error("Crash"))
+        assertNull(VpnTunnelManager.isIpv6Supported.value)
+    }
 }

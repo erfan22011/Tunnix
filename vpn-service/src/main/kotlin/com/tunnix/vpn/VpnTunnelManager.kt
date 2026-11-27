@@ -47,6 +47,7 @@ object VpnTunnelManager {
             return // Already connecting or connected to this server
         }
 
+        _isIpv6Supported.value = null
         activeServer = server
         updateState(VpnState.Connecting)
 
@@ -71,6 +72,7 @@ object VpnTunnelManager {
             action = ACTION_STOP
         }
         context.startService(intent)
+        _isIpv6Supported.value = null
         updateState(VpnState.Disconnected)
         activeServer = null
     }

@@ -26,6 +26,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ExitToApp
 import androidx.compose.material.icons.rounded.Settings
+import androidx.compose.material.icons.rounded.Warning
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
@@ -43,6 +44,7 @@ import com.tunnix.core.models.AppLanguage
 import com.tunnix.core.models.ServerConfig
 import com.tunnix.core.models.TrafficStats
 import com.tunnix.core.models.VpnState
+import com.tunnix.ui.components.GlassCard
 import com.tunnix.ui.components.LiquidPowerButton
 import com.tunnix.ui.components.ServerItemCard
 import com.tunnix.ui.components.TrafficStatsCard
@@ -63,7 +65,8 @@ fun MainScreen(
     onToggleConnection: () -> Unit,
     onNavigateToSettings: () -> Unit,
     onChangeSubscription: () -> Unit,
-    currentLanguage: AppLanguage
+    currentLanguage: AppLanguage,
+    ipv6Protected: Boolean? = null
 ) {
     val isFa = currentLanguage == AppLanguage.PERSIAN
 
@@ -196,6 +199,36 @@ fun MainScreen(
             downloadLabel = if (isFa) "دانلود" else "Download",
             uploadLabel = if (isFa) "آپلود" else "Upload"
         )
+
+        // Non-blocking IPv6 leak warning (only shown when Connected and device failed IPv6 TUN)
+        if (isConnected && ipv6Protected == false) {
+            Spacer(modifier = Modifier.height(14.dp))
+            GlassCard(
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier.padding(14.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.Warning,
+                        contentDescription = "Warning",
+                        tint = Color(0xFFFFB300),
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Text(
+                        text = if (isFa)
+                            "هشدار: IPv6 روی این دستگاه تحت پوشش تونل نیست؛ برای جلوگیری از نشت، IPv6 را در تنظیمات شبکه/سیم‌کارت غیرفعال کنید یا در تنظیمات اندروید گزینه‌های Always-on و Block connections without VPN را روشن کنید."
+                        else
+                            "Warning: IPv6 is not routed through the tunnel on this device. To prevent leaks, disable IPv6 in APN settings or enable Always-on VPN + Block connections without VPN in Android settings.",
+                        color = TunnixStyle.glass.textPrimary,
+                        fontSize = 12.sp,
+                        lineHeight = 17.sp
+                    )
+                }
+            }
+        }
 
         Spacer(modifier = Modifier.height(22.dp))
 

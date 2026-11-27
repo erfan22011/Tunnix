@@ -4,6 +4,11 @@ package com.tunnix.core.models
  * Single authoritative resolver for asymmetric download settings.
  * Applies VLESS download settings strictly for default ports (2053, 6793) or
  * user-specified custom target ports.
+ *
+ * NOTE: Both production servers requiring extra routing on ports 2053 and 6793
+ * use protocol VLESS with network XHTTP (confirmed by project owner).
+ * Non-XHTTP servers (e.g. VLESS with WS or TCP on Cloudflare ports like 2053)
+ * must remain untouched to prevent broken connections.
  */
 object DownloadSettingsResolver {
 
