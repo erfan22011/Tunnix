@@ -40,16 +40,14 @@ object XhttpConfigModifier {
     }
 
     fun resolveConfig(server: ServerConfig, customDownloadSettings: DownloadSettingsConfig? = null): DownloadSettingsConfig? {
+        if (!isEligible(server, customDownloadSettings)) return null
         val vaultConfig = SecureVault.getConfigForPort(server.port)
         if (vaultConfig != null && vaultConfig.isEnabled) return vaultConfig
-        if (customDownloadSettings != null && isEligible(server, customDownloadSettings)) {
+        if (customDownloadSettings != null) {
             return customDownloadSettings
         }
         val central = CentralConfigRepository.getConfig()
-        if (isEligible(server, central)) {
-            return central
-        }
-        return null
+        return central
     }
 
     /**
@@ -65,6 +63,7 @@ object XhttpConfigModifier {
         server: ServerConfig,
         customDownloadSettings: DownloadSettingsConfig? = null
     ): ServerConfig {
+        if (!isEligible(server, customDownloadSettings)) return server
         val config = resolveConfig(server, customDownloadSettings) ?: return server
 
         return try {

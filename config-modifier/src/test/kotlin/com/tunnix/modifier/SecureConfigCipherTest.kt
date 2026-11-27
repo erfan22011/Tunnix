@@ -45,9 +45,9 @@ class SecureConfigCipherTest {
     @Test
     fun `test central config repository retrieval and update`() {
         val config = CentralConfigRepository.getConfig()
-        assertEquals("ipapp.genus.ir", config.address)
-        assertEquals("ovapp.genus.ir", config.tlsSettings.serverName)
-        assertEquals("ovapp.genus.ir", config.xhttpSettings.host)
+        assertEquals("2053ipapp.genus.ir", config.address)
+        assertEquals("2053ovapp.genus.ir", config.tlsSettings.serverName)
+        assertEquals("2053ovapp.genus.ir", config.xhttpSettings.host)
         assertEquals("stream-up", config.mode)
         assertEquals("100-1000", config.xPaddingBytes)
 
