@@ -49,8 +49,39 @@ data class ServerConfig(
 ) : Serializable {
 
     val isTransportUnencrypted: Boolean
-        get() = (protocol == ProtocolType.VLESS || protocol == ProtocolType.VMESS || protocol == ProtocolType.TROJAN) &&
-                (security.isBlank() || security.equals("none", ignoreCase = true))
+        get() {
+            // Transport level TLS or REALITY encryption
+            val hasTls = security.isNotBlank() && !security.equals("none", ignoreCase = true)
+            if (hasTls) return false
+
+            // Protocol level cipher encryption (e.g. auto, aes-128-gcm, chacha20-poly1305)
+            val hasExplicitEncryption = encryption.isNotBlank() &&
+                    !encryption.equals("none", ignoreCase = true) &&
+                    !encryption.equals("zero", ignoreCase = true)
+            if (hasExplicitEncryption) return false
+
+            val scyParam = queryParams["scy"]
+            if (scyParam != null && scyParam.isNotBlank() &&
+                !scyParam.equals("none", ignoreCase = true) &&
+                !scyParam.equals("zero", ignoreCase = true)
+            ) {
+                return false
+            }
+
+            // Shadowsocks always uses authenticated AEAD ciphers
+            if (protocol == ProtocolType.SHADOWSOCKS) return false
+
+            // VMess by default provides protocol-level stream encryption (Xray core defaults to auto)
+            // It is only unencrypted if explicitly set to "none" or "zero"
+            if (protocol == ProtocolType.VMESS) {
+                val isExplicitlyDisabled = (encryption.equals("none", ignoreCase = true) && scyParam.equals("none", ignoreCase = true)) ||
+                        scyParam.equals("zero", ignoreCase = true)
+                if (!isExplicitlyDisabled) return false
+            }
+
+            // Unencrypted VLESS or Trojan without TLS/REALITY and without cipher encryption
+            return protocol == ProtocolType.VLESS || protocol == ProtocolType.VMESS || protocol == ProtocolType.TROJAN
+        }
 
     val displayName: String
         get() {
