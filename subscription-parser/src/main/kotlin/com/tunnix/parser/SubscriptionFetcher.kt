@@ -24,11 +24,16 @@ class SubscriptionFetcher(
         }
 
         val initialUrlStr = validationResult.getOrThrow()
-        var currentUrl: HttpUrl = initialUrlStr.toHttpUrlOrNull()
+        val currentUrl: HttpUrl = initialUrlStr.toHttpUrlOrNull()
             ?: return@withContext Result.failure(
                 SubscriptionParserException.InvalidDomainException("فرمت آدرس نامعتبر است: $initialUrlStr")
             )
 
+        executeFetchLoop(currentUrl)
+    }
+
+    private fun executeFetchLoop(startUrl: HttpUrl): Result<List<ServerConfig>> {
+        var currentUrl = startUrl
         var redirects = 0
 
         while (true) {
@@ -41,18 +46,18 @@ class SubscriptionFetcher(
             val response = try {
                 client.newCall(request).execute()
             } catch (e: IOException) {
-                return@withContext Result.failure(
+                return Result.failure(
                     SubscriptionParserException.NetworkException(e.message ?: "Network failure", e)
                 )
             } catch (e: Exception) {
-                return@withContext Result.failure(e)
+                return Result.failure(e)
             }
 
             if (response.isRedirect) {
                 redirects++
                 if (redirects > MAX_REDIRECTS) {
                     response.close()
-                    return@withContext Result.failure(
+                    return Result.failure(
                         SubscriptionParserException.NetworkException("تعداد ریدایرکت‌ها بیش از حد مجاز است / Too many redirects: $redirects")
                     )
                 }
@@ -61,26 +66,26 @@ class SubscriptionFetcher(
                 response.close()
 
                 if (locationHeader.isNullOrBlank()) {
-                    return@withContext Result.failure(
+                    return Result.failure(
                         SubscriptionParserException.NetworkException("ریدایرکت بدون هدر Location / Redirect missing Location header")
                     )
                 }
 
                 val resolvedUrl = currentUrl.resolve(locationHeader)
                 if (resolvedUrl == null) {
-                    return@withContext Result.failure(
+                    return Result.failure(
                         SubscriptionParserException.NetworkException("آدرس ریدایرکت نامعتبر است / Invalid redirect target: $locationHeader")
                     )
                 }
 
                 if (resolvedUrl.scheme != "https") {
-                    return@withContext Result.failure(
+                    return Result.failure(
                         SubscriptionParserException.NetworkException("ریدایرکت ناامن به پروتکل غیر HTTPS رد شد / Insecure redirect rejected: ${resolvedUrl.scheme}")
                     )
                 }
 
                 if (!SubscriptionDomainRules.isHostAllowed(resolvedUrl.host)) {
-                    return@withContext Result.failure(
+                    return Result.failure(
                         SubscriptionParserException.InvalidDomainException(
                             "ریدایرکت به دامنه غیرمجاز رد شد / Redirect to unauthorized domain rejected: ${SubscriptionDomainRules.sanitizeUrl(resolvedUrl.toString())}"
                         )
@@ -91,32 +96,30 @@ class SubscriptionFetcher(
                 continue
             }
 
-            response.use { resp ->
+            return response.use { resp ->
                 if (!resp.isSuccessful) {
-                    return@withContext Result.failure(
+                    return@use Result.failure(
                         SubscriptionParserException.NetworkException("HTTP ${resp.code}: ${resp.message}")
                     )
                 }
 
                 val responseBody = resp.body
-                if (responseBody == null) {
-                    return@withContext Result.failure(SubscriptionParserException.EmptySubscriptionException())
-                }
+                    ?: return@use Result.failure(SubscriptionParserException.EmptySubscriptionException())
 
                 val source = responseBody.source()
                 source.request(MAX_BODY_BYTES + 1)
                 if (source.buffer.size > MAX_BODY_BYTES) {
-                    return@withContext Result.failure(
+                    return@use Result.failure(
                         SubscriptionParserException.NetworkException("حجم محتوای اشتراک بیش از ۲ مگابایت است / Subscription response exceeds 2MB limit")
                     )
                 }
 
                 val body = responseBody.string()
                 if (body.isBlank()) {
-                    return@withContext Result.failure(SubscriptionParserException.EmptySubscriptionException())
+                    return@use Result.failure(SubscriptionParserException.EmptySubscriptionException())
                 }
 
-                return@withContext try {
+                try {
                     val servers = SubscriptionParser.parse(body)
                     Result.success(servers)
                 } catch (e: Exception) {

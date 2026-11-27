@@ -12,8 +12,13 @@ object VmessParser {
 
     private val gson = Gson()
 
-    fun parse(uriString: String): ServerConfig? {
-        val trimmed = uriString.trim()
+    /**
+     * Parses a vmess:// link (base64 encoded JSON) into a ServerConfig object.
+     * Standard VMess JSON format:
+     * {"v": "2", "ps": "Remark", "add": "IP/Domain", "port": 443, "id": "UUID", ...}
+     */
+    fun parse(rawUri: String): ServerConfig? {
+        val trimmed = rawUri.trim()
         if (!trimmed.startsWith("vmess://", ignoreCase = true)) return null
 
         return try {
@@ -22,10 +27,12 @@ object VmessParser {
             val obj = gson.fromJson(jsonString, JsonObject::class.java) ?: return null
 
             val name = obj.get("ps")?.asString ?: "VMess Server"
-            val address = obj.get("add")?.asString ?: return null
+            val address = obj.get("add")?.asString?.trim()?.removePrefix("[")?.removeSuffix("]") ?: return null
             val port = obj.get("port")?.asInt ?: return null
+            val uuid = obj.get("id")?.asString?.trim() ?: ""
+
             if (port !in 1..65535 || address.isBlank() || uuid.isBlank()) return null
-            val uuid = obj.get("id")?.asString ?: ""
+
             val security = if (obj.get("tls")?.asString?.equals("tls", ignoreCase = true) == true) "tls" else "none"
             val net = obj.get("net")?.asString?.lowercase() ?: "tcp"
             val host = obj.get("host")?.asString ?: ""
