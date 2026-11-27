@@ -15,6 +15,7 @@ import com.tunnix.core.models.ServerConfig
 import com.tunnix.core.models.ThemeMode
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
@@ -33,6 +34,7 @@ data class AppPreferences(
 class AppSettingsDataStore(private val context: Context) {
 
     private val gson = Gson()
+    private val migrationScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     companion object {
         private const val FAST_CACHE_PREFS = "tunnix_fast_cache"
@@ -110,14 +112,19 @@ class AppSettingsDataStore(private val context: Context) {
                 // One-time legacy migration: if encryption succeeds, save encrypted and return plaintext
                 try {
                     val encrypted = LocalSecurityCipher.encrypt(rawSubUrl)
-                    kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+                    migrationScope.launch {
                         try {
                             context.dataStore.edit { it[Keys.SUBSCRIPTION_URL] = encrypted }
                         } catch (_: Throwable) {}
                     }
                     rawSubUrl
                 } catch (_: Throwable) {
-                    // Cannot securely encrypt on this device -> do not trust or keep plaintext
+                    // Cannot securely encrypt on this device -> purge plaintext from disk (fail-closed)
+                    migrationScope.launch {
+                        try {
+                            context.dataStore.edit { it.remove(Keys.SUBSCRIPTION_URL) }
+                        } catch (_: Throwable) {}
+                    }
                     ""
                 }
             }
@@ -160,13 +167,19 @@ class AppSettingsDataStore(private val context: Context) {
                 // One-time legacy migration for server cache
                 try {
                     val encrypted = LocalSecurityCipher.encrypt(rawServersJson)
-                    kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+                    migrationScope.launch {
                         try {
                             context.dataStore.edit { it[Keys.CACHED_SERVERS] = encrypted }
                         } catch (_: Throwable) {}
                     }
                     rawServersJson
                 } catch (_: Throwable) {
+                    // Cannot securely encrypt on this device -> purge plaintext from disk (fail-closed)
+                    migrationScope.launch {
+                        try {
+                            context.dataStore.edit { it.remove(Keys.CACHED_SERVERS) }
+                        } catch (_: Throwable) {}
+                    }
                     null
                 }
             }

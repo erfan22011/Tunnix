@@ -75,11 +75,9 @@ object LocalSecurityCipher {
         try {
             val secretKey = getOrCreateKey()
             val cipher = Cipher.getInstance(AES_GCM_TRANSFORMATION)
-            val iv = ByteArray(GCM_IV_LENGTH)
-            SecureRandom().nextBytes(iv)
-            val spec = GCMParameterSpec(GCM_TAG_LENGTH, iv)
-
-            cipher.init(Cipher.ENCRYPT_MODE, secretKey, spec)
+            cipher.init(Cipher.ENCRYPT_MODE, secretKey)
+            val iv = cipher.iv ?: throw SecurityException("Cipher IV was not generated")
+            require(iv.size == GCM_IV_LENGTH) { "Invalid IV length: ${iv.size}" }
             val cipherBytes = cipher.doFinal(plainText.toByteArray(StandardCharsets.UTF_8))
 
             val combined = ByteArray(iv.size + cipherBytes.size)

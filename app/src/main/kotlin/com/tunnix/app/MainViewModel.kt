@@ -209,12 +209,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 if (fetchedServers.isNotEmpty()) {
                     rawServers = fetchedServers
                     // Persist valid server list into local cache securely
+                    var storageError: String? = null
                     try {
                         dataStore.saveCachedServers(fetchedServers)
                     } catch (_: SecurityException) {
-                        _uiState.value = _uiState.value.copy(
-                            errorMessage = "ذخیره امن اطلاعات در این دستگاه ممکن نیست / Secure storage unavailable on this device"
-                        )
+                        storageError = "اطلاعات امن ذخیره نشد؛ بعد از بستن برنامه باید دوباره لینک را وارد کنید."
                     }
 
                     val currentConfig = _uiState.value.downloadSettings
@@ -226,20 +225,19 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     val selected = modifiedServers.firstOrNull { it.id == currentlySelectedId }
                         ?: modifiedServers.firstOrNull()
 
+                    try {
+                        dataStore.saveSubscriptionUrl(urlOrToken)
+                    } catch (_: SecurityException) {
+                        storageError = "اطلاعات امن ذخیره نشد؛ بعد از بستن برنامه باید دوباره لینک را وارد کنید."
+                    }
+
                     _uiState.value = _uiState.value.copy(
                         servers = modifiedServers,
                         selectedServer = selected,
                         isLoading = false,
-                        errorMessage = null,
+                        errorMessage = storageError,
                         hasSubscription = true
                     )
-                    try {
-                        dataStore.saveSubscriptionUrl(urlOrToken)
-                    } catch (_: SecurityException) {
-                        _uiState.value = _uiState.value.copy(
-                            errorMessage = "ذخیره امن اطلاعات در این دستگاه ممکن نیست / Secure storage unavailable on this device"
-                        )
-                    }
                     selected?.let { dataStore.saveSelectedServerId(it.id) }
                 } else {
                     _uiState.value = _uiState.value.copy(

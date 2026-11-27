@@ -32,6 +32,23 @@ class LocalSecurityCipherTest {
         assertEquals("Decrypted text must match original", original, decrypted)
     }
 
+    @Test
+    fun `test multiple encryptions produce different ciphertexts due to random IV`() {
+        val text = "test-subscription-token"
+        val enc1 = LocalSecurityCipher.encrypt(text)
+        val enc2 = LocalSecurityCipher.encrypt(text)
+        assertNotEquals(enc1, enc2)
+        assertEquals(text, LocalSecurityCipher.decrypt(enc1))
+        assertEquals(text, LocalSecurityCipher.decrypt(enc2))
+    }
+
+    @Test
+    fun `test decrypt known legacy ENC_GCM vector`() {
+        val knownEncrypted = "ENC:GCM:MTIzNDU2Nzg5MDEypG1th4IruazsHaSRmJsFRE9FwNNTb34Pe3D0S7YnYnD5r9rzd5O36SWF8so3kB1sYp7eoiA0"
+        val decrypted = LocalSecurityCipher.decrypt(knownEncrypted)
+        assertEquals("https://genus.ir/sub/token_legacy_test", decrypted)
+    }
+
     @Test(expected = SecurityException::class)
     fun `test legacy unencrypted data without allowLegacy flag throws SecurityException (fail closed)`() {
         val legacyUrl = "https://sb.tootcloud.shop:2096/sub/legacy_token"
