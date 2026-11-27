@@ -107,7 +107,7 @@ class XrayConfigGeneratorTest {
             protocol = ProtocolType.SHADOWSOCKS,
             network = NetworkType.TCP,
             security = "none",
-            uuid = "n1r8bavu8028p6bz",
+            uuid = "dummy_ss_password_123",
             encryption = "chacha20-ietf-poly1305"
         )
 
@@ -122,7 +122,7 @@ class XrayConfigGeneratorTest {
         assertEquals("ir.jorqino.ir", s.get("address").asString)
         assertEquals(443, s.get("port").asInt)
         assertEquals("chacha20-ietf-poly1305", s.get("method").asString)
-        assertEquals("n1r8bavu8028p6bz", s.get("password").asString)
+        assertEquals("dummy_ss_password_123", s.get("password").asString)
         assertTrue(s.get("uot").asBoolean)
     }
 

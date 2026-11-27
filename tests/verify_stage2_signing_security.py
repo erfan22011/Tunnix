@@ -1,3 +1,6 @@
+# NOTE: Files in tests/ are static python source checks.
+# Authoritative test suite is Gradle (./gradlew test).
+
 import os
 import sys
 import subprocess
@@ -8,7 +11,7 @@ print("=== VERIFYING STAGE 2: RELEASE SIGNING SECURITY & SECRETS HARDENING ===")
 with open(r"app/build.gradle.kts", "r", encoding="utf-8") as f:
     build_gradle = f.read()
 
-assert "tunnix2026pass" not in build_gradle, "Hardcoded release password found in app/build.gradle.kts!"
+assert "old_hardcoded_keystore_pass" not in build_gradle, "Hardcoded release password found in app/build.gradle.kts!"
 assert 'System.getenv("KEYSTORE_PASSWORD")' in build_gradle, "KEYSTORE_PASSWORD must be read from environment variable!"
 assert 'System.getenv("KEY_ALIAS")' in build_gradle, "KEY_ALIAS must be read from environment variable!"
 assert 'System.getenv("KEY_PASSWORD")' in build_gradle, "KEY_PASSWORD must be read from environment variable!"
@@ -21,7 +24,7 @@ print("✅ Test 1 (app/build.gradle.kts zero hardcoded secrets & release guard):
 with open(r".github/workflows/android-release.yml", "r", encoding="utf-8") as f:
     release_wf = f.read()
 
-assert "tunnix2026pass" not in release_wf, "Hardcoded release password found in android-release.yml!"
+assert "old_hardcoded_keystore_pass" not in release_wf, "Hardcoded release password found in android-release.yml!"
 assert "secrets.KEYSTORE_PASSWORD" in release_wf, "Workflow must use secrets.KEYSTORE_PASSWORD!"
 assert "secrets.KEY_ALIAS" in release_wf, "Workflow must use secrets.KEY_ALIAS!"
 assert "secrets.KEY_PASSWORD" in release_wf, "Workflow must use secrets.KEY_PASSWORD!"
