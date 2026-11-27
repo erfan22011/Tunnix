@@ -221,6 +221,38 @@ fun SettingsScreen(
             }
         }
 
+        Spacer(modifier = Modifier.height(24.dp))
+
+        // Section 3: Kill-Switch & Traffic Leak Protection Guide
+        Text(
+            text = if (isFa) "امنیت و کیل‌سوئیچ (Kill-Switch)" else "Security & Kill-Switch",
+            color = TunnixStyle.glass.textSecondary,
+            fontSize = 14.sp
+        )
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        GlassCard(modifier = Modifier.fillMaxWidth()) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    text = if (isFa) "حفاظت دائمی در برابر نشت ترافیک" else "Full Leak Protection",
+                    color = EmeraldGreen,
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    text = if (isFa)
+                        "برای فعال‌سازی کامل Kill-Switch و جلوگیری از هرگونه نشت IPv4/IPv6 هنگام قطع ناگهانی یا سوئیچ شبکه، به مسیر تنظیمات گوشی بروید:\nSettings > Network & internet > VPN > Tunnix\nو گزینه‌های Always-on VPN و Block connections without VPN را فعال نمایید."
+                    else
+                        "To enable full system-level Kill-Switch and block all traffic leaks if disconnected or switching networks, go to:\nSettings > Network & internet > VPN > Tunnix\nand enable 'Always-on VPN' and 'Block connections without VPN'.",
+                    color = TunnixStyle.glass.textSecondary,
+                    fontSize = 13.sp,
+                    lineHeight = 19.sp
+                )
+            }
+        }
+
         Spacer(modifier = Modifier.height(36.dp))
 
         // Footer: Version & Slogan
