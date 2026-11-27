@@ -50,8 +50,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private var rawServers: List<ServerConfig> = emptyList()
     private var currentSubscriptionUrl: String = ""
     private var networkCallback: ConnectivityManager.NetworkCallback? = null
+    private var lastNetworkRefreshTime = 0L
     private var fetchJob: Job? = null
     private var hasDoneInitialRefresh: Boolean = false
+
+    companion object {
+        private const val NETWORK_REFRESH_DEBOUNCE_MS = 60_000L
+    }
 
     private val cachedTheme = AppSettingsDataStore.getCachedThemeMode(application)
     private val cachedLang = AppSettingsDataStore.getCachedLanguage(application)
@@ -84,8 +89,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val cm = getApplication<Application>().getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager ?: return
         networkCallback = object : ConnectivityManager.NetworkCallback() {
             override fun onAvailable(network: Network) {
-                // When internet becomes available (e.g. user turns on Wi-Fi or mobile data),
-                // automatically refresh/fetch servers in background if subscription exists.
+                // Skip network refresh if VPN is already connecting or connected
+                val vState = _uiState.value.vpnState
+                if (vState is VpnState.Connected || vState is VpnState.Connecting) return
+
+                val now = System.currentTimeMillis()
+                if (now - lastNetworkRefreshTime < NETWORK_REFRESH_DEBOUNCE_MS) return
+                lastNetworkRefreshTime = now
+
                 val subUrl = currentSubscriptionUrl
                 if (subUrl.isNotBlank()) {
                     refreshSubscription(subUrl, _uiState.value.selectedServer?.id, isSilent = _uiState.value.servers.isNotEmpty())

@@ -22,6 +22,11 @@ object XhttpConfigModifier {
      */
     fun isEligible(server: ServerConfig, customDownloadSettings: DownloadSettingsConfig? = null): Boolean {
         if (server.protocol != ProtocolType.VLESS) return false
+        // Never override a server that already has explicit downloadSettings configured!
+        if (server.downloadSettings != null) return false
+        // Server address must belong to allowed subscription domains or subdomains
+        if (!com.tunnix.core.models.SubscriptionDomainRules.isHostAllowed(server.address)) return false
+
         val vaultConfig = SecureVault.getConfigForPort(server.port)
         if (vaultConfig != null && vaultConfig.isEnabled) return true
         if (customDownloadSettings != null && customDownloadSettings.isEnabled) {

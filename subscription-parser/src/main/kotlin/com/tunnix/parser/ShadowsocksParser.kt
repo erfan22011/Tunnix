@@ -94,7 +94,7 @@ object ShadowsocksParser {
                 }
             }
 
-            if (address.isBlank() || port <= 0) return null
+            if (address.isBlank() || port !in 1..65535 || password.isBlank()) return null
 
             val serverName = remark.ifBlank { "$address:$port" }.take(ServerConfig.MAX_NAME_LENGTH)
 

@@ -234,4 +234,20 @@ class XhttpConfigModifierTest {
         assertEquals("6793ovapp.genus.ir", modified.downloadSettings!!.xhttpSettings.host)
         assertEquals("/xhttp", modified.downloadSettings!!.xhttpSettings.path)
     }
+
+    @Test
+    fun `test foreign server address is not eligible for XHTTP modification`() {
+        val foreignServer = createSampleVlessXhttp().copy(address = "evil.example.com")
+        assertFalse("Foreign server outside allowed domains must not be eligible", XhttpConfigModifier.isEligible(foreignServer))
+        val modified = XhttpConfigModifier.modify(foreignServer)
+        assertFalse(modified.isXhttpModified)
+    }
+
+    @Test
+    fun `test server with existing explicit downloadSettings is not overwritten`() {
+        val serverWithSettings = createSampleVlessXhttp().copy(
+            downloadSettings = com.tunnix.core.models.DownloadSettingsConfig(address = "custom.upstream.com")
+        )
+        assertFalse("Server with existing downloadSettings must not be overwritten", XhttpConfigModifier.isEligible(serverWithSettings))
+    }
 }

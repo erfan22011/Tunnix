@@ -24,6 +24,7 @@ object VmessParser {
             val name = obj.get("ps")?.asString ?: "VMess Server"
             val address = obj.get("add")?.asString ?: return null
             val port = obj.get("port")?.asInt ?: return null
+            if (port !in 1..65535 || address.isBlank() || uuid.isBlank()) return null
             val uuid = obj.get("id")?.asString ?: ""
             val security = if (obj.get("tls")?.asString?.equals("tls", ignoreCase = true) == true) "tls" else "none"
             val net = obj.get("net")?.asString?.lowercase() ?: "tcp"

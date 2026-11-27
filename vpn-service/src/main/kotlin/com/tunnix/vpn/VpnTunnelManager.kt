@@ -45,10 +45,14 @@ object VpnTunnelManager {
             putExtra(EXTRA_SERVER, server)
         }
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            context.startForegroundService(intent)
-        } else {
-            context.startService(intent)
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                context.startForegroundService(intent)
+            } else {
+                context.startService(intent)
+            }
+        } catch (e: Exception) {
+            updateState(VpnState.Error("عدم امکان شروع سرویس VPN: ${e.message}", e))
         }
     }
 

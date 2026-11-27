@@ -120,7 +120,7 @@ object XrayConfigGenerator {
 
             val settings = JsonObject().apply {
                 addProperty("name", "tun0")
-                addProperty("mtu", 1500)
+                addProperty("mtu", 1400)
                 addProperty("userLevel", 8)
             }
             add("settings", settings)

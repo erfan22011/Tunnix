@@ -5,9 +5,8 @@ import com.google.gson.GsonBuilder
 import com.tunnix.core.models.DownloadSettingsConfig
 
 /**
- * Central repository holding the XHTTP DownloadSettings.
- * Stores the values encrypted to prevent unauthorized extraction from APK decompilation.
- * Allows easy dynamic runtime updating.
+ * Central in-memory repository holding the active runtime XHTTP DownloadSettings config.
+ * Provides in-memory obfuscation against casual memory inspection and dynamic runtime updating.
  */
 object CentralConfigRepository {
 

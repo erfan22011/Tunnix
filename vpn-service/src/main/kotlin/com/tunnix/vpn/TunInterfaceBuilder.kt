@@ -6,7 +6,7 @@ import com.tunnix.core.models.ServerConfig
 
 object TunInterfaceBuilder {
 
-    const val VPN_MTU = 1500
+    const val VPN_MTU = 1400
     const val VPN_IPV4_ADDRESS = "172.19.0.1"
     const val VPN_IPV4_PREFIX = 30
     const val VPN_IPV6_ADDRESS = "fdfe:dcba:9876::1"

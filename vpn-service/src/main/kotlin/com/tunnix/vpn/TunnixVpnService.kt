@@ -197,29 +197,33 @@ class TunnixVpnService : VpnService() {
         val stopId = forStartId ?: lastStartId
 
         transitionJob = serviceScope.launch {
-            serviceMutex.withLock {
-                closeTunSilently()
-                withContext(Dispatchers.IO) {
-                    XrayCoreController.stop()
-                }
+            withContext(NonCancellable) {
+                serviceMutex.withLock {
+                    try {
+                        closeTunSilently()
+                        withContext(Dispatchers.IO) {
+                            XrayCoreController.stop()
+                        }
+                    } finally {
+                        // DO NOT overwrite error state with Disconnected!
+                        if (targetError != null) {
+                            VpnTunnelManager.updateState(targetError)
+                        } else {
+                            VpnTunnelManager.updateState(VpnState.Disconnected)
+                        }
 
-                // DO NOT overwrite error state with Disconnected!
-                if (targetError != null) {
-                    VpnTunnelManager.updateState(targetError)
-                } else {
-                    VpnTunnelManager.updateState(VpnState.Disconnected)
-                }
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                            stopForeground(STOP_FOREGROUND_REMOVE)
+                        } else {
+                            @Suppress("DEPRECATION")
+                            stopForeground(true)
+                        }
 
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-                    stopForeground(STOP_FOREGROUND_REMOVE)
-                } else {
-                    @Suppress("DEPRECATION")
-                    stopForeground(true)
-                }
-
-                // Only stop service if no new startCommand has superseded this startId
-                if (stopId == lastStartId) {
-                    stopSelf(stopId)
+                        // Only stop service if no new startCommand has superseded this startId
+                        if (stopId == lastStartId) {
+                            stopSelf(stopId)
+                        }
+                    }
                 }
             }
         }

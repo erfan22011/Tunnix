@@ -36,6 +36,7 @@ object TrojanParser {
 
             val address = hostPort.substring(0, lastColon).trim().removePrefix("[").removeSuffix("]")
             val port = hostPort.substring(lastColon + 1).trim().toIntOrNull() ?: return null
+            if (port !in 1..65535 || address.isBlank() || password.isBlank()) return null
 
             val queryParams = mutableMapOf<String, String>()
             if (queryString.isNotEmpty()) {
