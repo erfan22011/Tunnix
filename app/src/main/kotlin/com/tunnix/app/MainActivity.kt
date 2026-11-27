@@ -78,6 +78,7 @@ class MainActivity : ComponentActivity() {
                             themeMode = uiState.themeMode,
                             onThemeChange = { viewModel.changeTheme(it) },
                             vpnState = uiState.vpnState,
+                            ipv6Protected = uiState.ipv6Protected,
                             trafficStats = uiState.trafficStats,
                             servers = uiState.servers,
                             selectedServer = uiState.selectedServer,

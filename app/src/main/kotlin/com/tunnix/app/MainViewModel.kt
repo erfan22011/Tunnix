@@ -33,6 +33,7 @@ data class UiState(
     val language: AppLanguage = AppLanguage.PERSIAN,
     val themeMode: ThemeMode = ThemeMode.DARK,
     val vpnState: VpnState = VpnState.Disconnected,
+    val ipv6Protected: Boolean? = null,
     val trafficStats: TrafficStats = TrafficStats(),
     val servers: List<ServerConfig> = emptyList(),
     val selectedServer: ServerConfig? = null,
@@ -172,6 +173,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     }
                     else -> {}
                 }
+            }
+        }
+        viewModelScope.launch {
+            VpnTunnelManager.isIpv6Supported.collect { supported ->
+                _uiState.value = _uiState.value.copy(ipv6Protected = supported)
             }
         }
     }

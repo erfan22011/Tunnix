@@ -35,7 +35,7 @@ object TunInterfaceBuilder {
         builder.addAddress(VPN_IPV4_ADDRESS, VPN_IPV4_PREFIX)
         builder.addRoute("0.0.0.0", 0)
 
-        // 4. IPv6 Configuration (safe fallback with leak prevention attempt)
+        // 4. IPv6 Configuration (safe fallback: only marked supported if both address and route succeed)
         var ipv6Success = false
         try {
             builder.addAddress(VPN_IPV6_ADDRESS, VPN_IPV6_PREFIX)
@@ -47,10 +47,7 @@ object TunInterfaceBuilder {
                 "IPv6 TUN configuration failed on this device - IPv6 traffic may not be captured by TUN / هشدار: راه‌اندازی اینترفیس IPv6 ناموفق بود",
                 e
             )
-            // Attempt to capture default route ::/0 anyway to prevent IPv6 traffic leakage
-            try {
-                builder.addRoute("::", 0)
-            } catch (_: Exception) {}
+            ipv6Success = false
         }
         VpnTunnelManager.setIpv6Supported(ipv6Success)
 
