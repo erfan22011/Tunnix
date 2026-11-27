@@ -27,11 +27,14 @@ object XhttpConfigModifier {
         // Server address must belong to allowed subscription domains or subdomains
         if (!com.tunnix.core.models.SubscriptionDomainRules.isHostAllowed(server.address)) return false
 
-        val vaultConfig = SecureVault.getConfigForPort(server.port)
-        if (vaultConfig != null && vaultConfig.isEnabled) return true
-        if (customDownloadSettings != null && customDownloadSettings.isEnabled) {
+        if (customDownloadSettings != null) {
+            if (!customDownloadSettings.isEnabled) return false
             return (server.port == customDownloadSettings.effectiveTargetPort) || (server.port == customDownloadSettings.port)
         }
+
+        val vaultConfig = SecureVault.getConfigForPort(server.port)
+        if (vaultConfig != null && vaultConfig.isEnabled) return true
+
         val central = CentralConfigRepository.getConfig()
         if (central.isEnabled && ((server.port == central.effectiveTargetPort) || (server.port == central.port))) {
             return true
@@ -41,11 +44,11 @@ object XhttpConfigModifier {
 
     fun resolveConfig(server: ServerConfig, customDownloadSettings: DownloadSettingsConfig? = null): DownloadSettingsConfig? {
         if (!isEligible(server, customDownloadSettings)) return null
-        val vaultConfig = SecureVault.getConfigForPort(server.port)
-        if (vaultConfig != null && vaultConfig.isEnabled) return vaultConfig
         if (customDownloadSettings != null) {
             return customDownloadSettings
         }
+        val vaultConfig = SecureVault.getConfigForPort(server.port)
+        if (vaultConfig != null && vaultConfig.isEnabled) return vaultConfig
         val central = CentralConfigRepository.getConfig()
         return central
     }

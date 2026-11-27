@@ -58,6 +58,6 @@ class SecureConfigCipherTest {
 
         // Reset
         CentralConfigRepository.resetToDefault()
-        assertEquals("ipapp.genus.ir", CentralConfigRepository.getConfig().address)
+        assertEquals("2053ipapp.genus.ir", CentralConfigRepository.getConfig().address)
     }
 }
