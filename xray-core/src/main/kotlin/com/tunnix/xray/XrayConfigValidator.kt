@@ -236,37 +236,60 @@ object XrayConfigValidator {
     private fun validateStreamSettings(streamSettings: JsonObject, issues: MutableList<String>) {
         val network = getStringSafe(streamSettings, "network")
 
+        // Validate outbound tlsSettings: reject allowInsecure = true
+        if (streamSettings.has("tlsSettings") && streamSettings.get("tlsSettings").isJsonObject) {
+            val tls = streamSettings.getAsJsonObject("tlsSettings")
+            if (tls.has("allowInsecure") && tls.get("allowInsecure").isJsonPrimitive) {
+                if (tls.get("allowInsecure").asBoolean) {
+                    issues.add("tlsSettings cannot set allowInsecure to true")
+                }
+            }
+        }
+
         if (network == "xhttp") {
-            val xhttpSettings = if (streamSettings.has("xhttpSettings") && streamSettings.get("xhttpSettings").isJsonObject) {
-                streamSettings.getAsJsonObject("xhttpSettings")
-            } else {
+            if (!streamSettings.has("xhttpSettings") || !streamSettings.get("xhttpSettings").isJsonObject) {
                 issues.add("XHTTP streamSettings missing or invalid 'xhttpSettings'")
-                null
             }
 
-            val mode = if (xhttpSettings != null) getStringSafe(xhttpSettings, "mode") else null
+            // Find downloadSettings in any of the 3 supported locations:
+            // 1. streamSettings.downloadSettings
+            // 2. streamSettings.xhttpSettings.downloadSettings
+            // 3. streamSettings.xhttpSettings.extra.downloadSettings
+            val dlCandidates = mutableListOf<JsonObject>()
+            if (streamSettings.has("downloadSettings") && streamSettings.get("downloadSettings").isJsonObject) {
+                dlCandidates.add(streamSettings.getAsJsonObject("downloadSettings"))
+            }
+            if (streamSettings.has("xhttpSettings") && streamSettings.get("xhttpSettings").isJsonObject) {
+                val xhttp = streamSettings.getAsJsonObject("xhttpSettings")
+                if (xhttp.has("downloadSettings") && xhttp.get("downloadSettings").isJsonObject) {
+                    dlCandidates.add(xhttp.getAsJsonObject("downloadSettings"))
+                }
+                if (xhttp.has("extra") && xhttp.get("extra").isJsonObject) {
+                    val extra = xhttp.getAsJsonObject("extra")
+                    if (extra.has("downloadSettings") && extra.get("downloadSettings").isJsonObject) {
+                        dlCandidates.add(extra.getAsJsonObject("downloadSettings"))
+                    }
+                }
+            }
 
-            // Asymmetric downloadSettings validation: required when mode is stream-up, or when explicitly present
-            if (mode == "stream-up" || streamSettings.has("downloadSettings")) {
-                if (!streamSettings.has("downloadSettings") || !streamSettings.get("downloadSettings").isJsonObject) {
-                    issues.add("XHTTP streamSettings missing or invalid 'downloadSettings'")
-                } else {
-                    val dlElem = streamSettings.get("downloadSettings")
-                    val dl = dlElem.asJsonObject
-                    val address = getStringSafe(dl, "address")
-                    if (address.isNullOrBlank()) {
-                        issues.add("downloadSettings missing 'address'")
-                    } else if (isPrivateOrLoopback(address)) {
-                        issues.add("downloadSettings address cannot be loopback or private IP (SSRF protection)")
-                    }
-                    if (!isValidPort(dl.get("port"), allowZero = false)) {
-                        issues.add("downloadSettings missing or invalid 'port' (must be 1..65535)")
-                    }
-                    if (!dl.has("tlsSettings") || !dl.get("tlsSettings").isJsonObject) {
-                        issues.add("downloadSettings missing or invalid 'tlsSettings'")
-                    }
-                    if (!dl.has("xhttpSettings") || !dl.get("xhttpSettings").isJsonObject) {
-                        issues.add("downloadSettings missing or invalid 'xhttpSettings'")
+            for (dl in dlCandidates) {
+                val address = getStringSafe(dl, "address")
+                if (address.isNullOrBlank()) {
+                    issues.add("downloadSettings missing 'address'")
+                } else if (isPrivateOrLoopback(address)) {
+                    issues.add("downloadSettings address cannot be loopback or private IP (SSRF protection)")
+                }
+                if (!isValidPort(dl.get("port"), allowZero = false)) {
+                    issues.add("downloadSettings missing or invalid 'port' (must be 1..65535)")
+                }
+                val sec = getStringSafe(dl, "security") ?: "tls"
+                if (sec == "tls" && (!dl.has("tlsSettings") || !dl.get("tlsSettings").isJsonObject)) {
+                    issues.add("downloadSettings missing or invalid 'tlsSettings'")
+                }
+                if (dl.has("tlsSettings") && dl.get("tlsSettings").isJsonObject) {
+                    val dlTls = dl.getAsJsonObject("tlsSettings")
+                    if (dlTls.has("allowInsecure") && dlTls.get("allowInsecure").isJsonPrimitive && dlTls.get("allowInsecure").asBoolean) {
+                        issues.add("downloadSettings tlsSettings cannot set allowInsecure to true")
                     }
                 }
             }
@@ -274,24 +297,7 @@ object XrayConfigValidator {
     }
 
     fun isPrivateOrLoopback(address: String): Boolean {
-        val clean = address.trim().lowercase()
-            .removePrefix("[").removeSuffix("]")
-        if (clean == "localhost" || clean == "127.0.0.1" || clean == "::1" || clean == "0.0.0.0" ||
-            clean.startsWith("127.") || clean.startsWith("10.") || clean.startsWith("192.168.") ||
-            clean.startsWith("169.254.") || clean.startsWith("100.64.") ||
-            clean.endsWith(".local") || clean.endsWith(".internal") || clean.endsWith(".lan")) {
-            return true
-        }
-        if (clean.startsWith("172.")) {
-            val parts = clean.split(".")
-            if (parts.size >= 2) {
-                val secondOctet = parts[1].toIntOrNull()
-                if (secondOctet != null && secondOctet in 16..31) {
-                    return true
-                }
-            }
-        }
-        return false
+        return com.tunnix.core.models.IpAddressSecurity.isPrivateOrLoopback(address)
     }
 
     fun isValidPort(element: JsonElement?, allowZero: Boolean = false): Boolean {

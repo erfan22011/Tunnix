@@ -110,8 +110,8 @@ class XrayConfigValidatorTest {
     }
 
     @Test
-    fun `test json missing downloadSettings fails XHTTP validation`() {
-        val brokenJson = """
+    fun `test json with stream-up mode without downloadSettings is valid in standard XHTTP`() {
+        val standardStreamUp = """
             {
               "inbounds": [{"tag": "tun", "protocol": "tun"}],
               "outbounds": [
@@ -128,9 +128,40 @@ class XrayConfigValidatorTest {
             }
         """.trimIndent()
 
-        val result = XrayConfigValidator.validate(brokenJson)
+        val result = XrayConfigValidator.validate(standardStreamUp)
+        assertTrue("Standard XHTTP stream-up without downloadSettings must be valid: ${result.issues}", result.isValid)
+    }
+
+    @Test
+    fun `test downloadSettings in nested extra with private IP fails validation`() {
+        val nestedWithLoopback = """
+            {
+              "inbounds": [{"tag": "tun-in", "protocol": "tun", "port": 0}],
+              "outbounds": [{
+                "tag": "proxy",
+                "protocol": "vless",
+                "settings": {"vnext": [{"address": "ovv.pelqexa.ir", "port": 2053}]},
+                "streamSettings": {
+                  "network": "xhttp",
+                  "xhttpSettings": {
+                    "extra": {
+                      "downloadSettings": {
+                        "address": "10.0.0.1",
+                        "port": 2053,
+                        "tlsSettings": {},
+                        "xhttpSettings": {}
+                      }
+                    }
+                  }
+                }
+              }],
+              "routing": {"rules": [{"outboundTag": "proxy"}]}
+            }
+        """.trimIndent()
+
+        val result = XrayConfigValidator.validate(nestedWithLoopback)
         assertFalse(result.isValid)
-        assertTrue(result.issues.any { it.contains("downloadSettings") })
+        assertTrue(result.issues.any { it.contains("loopback or private IP") })
     }
 
     @Test
