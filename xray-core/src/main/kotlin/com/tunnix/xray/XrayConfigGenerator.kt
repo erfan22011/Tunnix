@@ -322,7 +322,8 @@ object XrayConfigGenerator {
         // XHTTP Transport Settings
         val dlConfig = com.tunnix.core.models.DownloadSettingsResolver.resolve(server, customDownloadSettings)
             ?: (server.downloadSettings?.takeIf { server.isXhttpModified })
-        val shouldApplyAsymmetric = dlConfig != null && dlConfig.isEnabled && server.protocol == ProtocolType.VLESS
+        val shouldApplyAsymmetric = dlConfig != null && dlConfig.isEnabled &&
+                server.protocol == ProtocolType.VLESS && server.network == NetworkType.XHTTP
 
         if (server.network == NetworkType.XHTTP || shouldApplyAsymmetric) {
             streamSettings.addProperty("network", "xhttp")

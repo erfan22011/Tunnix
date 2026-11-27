@@ -123,6 +123,36 @@ class XhttpConfigModifierTest {
 
     @Test
     fun `test non-XHTTP configs remain completely untouched`() {
+        // VLESS WS on port 2053
+        val vlessWs2053 = ServerConfig(
+            id = "vless-ws-2053",
+            name = "VLESS WS 2053",
+            address = "ws.com",
+            port = 2053,
+            protocol = ProtocolType.VLESS,
+            network = NetworkType.WS,
+            rawUri = "vless://uuid@ws.com:2053?type=ws"
+        )
+        assertFalse("VLESS WS on port 2053 must NOT be eligible for XHTTP modification", XhttpConfigModifier.isEligible(vlessWs2053))
+        val modWs = XhttpConfigModifier.modify(vlessWs2053)
+        assertFalse(modWs.isXhttpModified)
+        assertEquals(vlessWs2053.rawUri, modWs.rawUri)
+
+        // VLESS TCP on port 2053
+        val vlessTcp2053 = ServerConfig(
+            id = "vless-tcp-2053",
+            name = "VLESS TCP 2053",
+            address = "tcp.com",
+            port = 2053,
+            protocol = ProtocolType.VLESS,
+            network = NetworkType.TCP,
+            rawUri = "vless://uuid@tcp.com:2053?type=tcp"
+        )
+        assertFalse("VLESS TCP on port 2053 must NOT be eligible for XHTTP modification", XhttpConfigModifier.isEligible(vlessTcp2053))
+        val modTcp = XhttpConfigModifier.modify(vlessTcp2053)
+        assertFalse(modTcp.isXhttpModified)
+        assertEquals(vlessTcp2053.rawUri, modTcp.rawUri)
+
         // 1. Trojan Server
         val trojan = ServerConfig(
             id = "trojan-1",
