@@ -184,12 +184,27 @@ class XhttpEndToEndIntegrationTest {
     }
 
     @Test
-    fun `test non-VLESS server on port 2053 is untouched`() {
+    fun `test non-VLESS or non-XHTTP servers on port 2053 are untouched`() {
         val trojanServer = sampleServer(2053, "ovv.pelqexa.ir", protocol = ProtocolType.TROJAN)
         val modifiedList = XhttpConfigModifier.modifyAll(listOf(trojanServer), DownloadSettingsConfig.DEFAULT)
-
         assertFalse(modifiedList[0].isXhttpModified)
         assertNull(modifiedList[0].downloadSettings)
+
+        // VLESS WS on 2053 must not become XHTTP
+        val vlessWs2053 = sampleServer(2053, "ovv.pelqexa.ir", protocol = ProtocolType.VLESS).copy(
+            network = NetworkType.WS
+        )
+        val modifiedWs = XhttpConfigModifier.modifyAll(listOf(vlessWs2053), DownloadSettingsConfig.DEFAULT)
+        assertFalse("VLESS WS on port 2053 must NOT be marked as xhttp modified", modifiedWs[0].isXhttpModified)
+        assertNull(modifiedWs[0].downloadSettings)
+
+        val jsonWs = XrayConfigGenerator.generate(modifiedWs[0], customDownloadSettings = DownloadSettingsConfig.DEFAULT)
+        val rootWs = JsonParser.parseString(jsonWs).asJsonObject
+        val streamWs = rootWs.getAsJsonArray("outbounds")
+            .first { it.asJsonObject.get("tag").asString == "proxy" }.asJsonObject
+            .getAsJsonObject("streamSettings")
+        assertEquals("ws", streamWs.get("network").asString)
+        assertFalse("VLESS WS must NOT have downloadSettings injected", streamWs.has("downloadSettings"))
     }
 
     @Test

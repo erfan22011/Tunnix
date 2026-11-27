@@ -15,6 +15,13 @@ object VpnTunnelManager {
     private val _vpnState = MutableStateFlow<VpnState>(VpnState.Disconnected)
     val vpnState: StateFlow<VpnState> = _vpnState.asStateFlow()
 
+    private val _isIpv6Supported = MutableStateFlow<Boolean?>(null)
+    val isIpv6Supported: StateFlow<Boolean?> = _isIpv6Supported.asStateFlow()
+
+    fun setIpv6Supported(supported: Boolean) {
+        _isIpv6Supported.value = supported
+    }
+
     private val isConnectingOrConnected = AtomicBoolean(false)
     private var activeServer: ServerConfig? = null
 
@@ -28,7 +35,10 @@ object VpnTunnelManager {
             is VpnState.Connected -> isConnectingOrConnected.set(true)
             is VpnState.Connecting -> isConnectingOrConnected.set(true)
             is VpnState.Reconnecting -> isConnectingOrConnected.set(true)
-            is VpnState.Disconnected, is VpnState.Error -> isConnectingOrConnected.set(false)
+            is VpnState.Disconnected, is VpnState.Error -> {
+                isConnectingOrConnected.set(false)
+                _isIpv6Supported.value = null
+            }
         }
     }
 

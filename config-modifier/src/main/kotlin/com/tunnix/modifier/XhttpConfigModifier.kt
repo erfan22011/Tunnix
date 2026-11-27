@@ -23,7 +23,7 @@ object XhttpConfigModifier {
      * and must resolve via DownloadSettingsResolver (default ports 2053, 6793, or custom targetPort).
      */
     fun isEligible(server: ServerConfig, customDownloadSettings: DownloadSettingsConfig? = null): Boolean {
-        if (server.protocol != ProtocolType.VLESS) return false
+        if (server.protocol != ProtocolType.VLESS || server.network != NetworkType.XHTTP) return false
         if (IpAddressSecurity.isPrivateOrLoopback(server.address)) return false
 
         return DownloadSettingsResolver.resolve(server, customDownloadSettings) != null

@@ -60,42 +60,46 @@ object XhttpExtraSanitizer {
      * Returns empty JsonObject if parsing fails, input is too large, or nesting is too deep.
      */
     fun sanitize(extraJson: String): JsonObject {
-        if (extraJson.isBlank() || extraJson.length > MAX_EXTRA_BYTES) {
-            return JsonObject()
-        }
-
-        val parsedElement: JsonElement = try {
-            JsonParser.parseString(extraJson)
-        } catch (_: Exception) {
-            return JsonObject()
-        }
-
-        if (!parsedElement.isJsonObject) {
-            return JsonObject()
-        }
-
-        val root = parsedElement.asJsonObject
-        if (calculateDepth(root) > MAX_DEPTH) {
-            return JsonObject()
-        }
-
-        val sanitized = JsonObject()
-        for ((key, value) in root.entrySet()) {
-            if (isForbiddenKey(key)) continue
-
-            if (key == "downloadSettings" && value.isJsonObject) {
-                val cleanDl = sanitizeDownloadSettings(value.asJsonObject)
-                if (cleanDl != null) {
-                    sanitized.add(key, cleanDl)
-                }
-            } else if (value.isJsonObject) {
-                sanitized.add(key, sanitizeGenericObject(value.asJsonObject))
-            } else {
-                sanitized.add(key, value)
+        return try {
+            if (extraJson.isBlank() || extraJson.length > MAX_EXTRA_BYTES) {
+                return JsonObject()
             }
-        }
 
-        return sanitized
+            val parsedElement: JsonElement = try {
+                JsonParser.parseString(extraJson)
+            } catch (_: Exception) {
+                return JsonObject()
+            }
+
+            if (!parsedElement.isJsonObject) {
+                return JsonObject()
+            }
+
+            val root = parsedElement.asJsonObject
+            if (calculateDepth(root) > MAX_DEPTH) {
+                return JsonObject()
+            }
+
+            val sanitized = JsonObject()
+            for ((key, value) in root.entrySet()) {
+                if (isForbiddenKey(key)) continue
+
+                if (key == "downloadSettings" && value.isJsonObject) {
+                    val cleanDl = sanitizeDownloadSettings(value.asJsonObject)
+                    if (cleanDl != null) {
+                        sanitized.add(key, cleanDl)
+                    }
+                } else if (value.isJsonObject) {
+                    sanitized.add(key, sanitizeGenericObject(value.asJsonObject))
+                } else {
+                    sanitized.add(key, value)
+                }
+            }
+
+            sanitized
+        } catch (_: Throwable) {
+            JsonObject()
+        }
     }
 
     private fun isForbiddenKey(key: String): Boolean {
@@ -119,80 +123,103 @@ object XhttpExtraSanitizer {
     /**
      * Performs deep sanitization on downloadSettings.
      * Returns null (dropping downloadSettings) if address is blank or loopback/private,
-     * or if port is invalid.
+     * if port is invalid, or if required security settings (tlsSettings/realitySettings) are missing.
      */
     fun sanitizeDownloadSettings(dlObj: JsonObject): JsonObject? {
-        val addressElem = dlObj.get("address")
-        val address = if (addressElem != null && addressElem.isJsonPrimitive) addressElem.asString else ""
-
-        // If address is blank or loopback/private/internal, drop entire downloadSettings safely
-        if (address.isBlank() || IpAddressSecurity.isPrivateOrLoopback(address)) {
-            return null
-        }
-
-        val portElem = dlObj.get("port")
-        val port = if (portElem != null && portElem.isJsonPrimitive && portElem.asJsonPrimitive.isNumber) {
-            portElem.asInt
-        } else {
-            -1
-        }
-        if (port !in 1..65535) {
-            return null
-        }
-
-        val clean = JsonObject()
-        for ((key, value) in dlObj.entrySet()) {
-            if (key !in ALLOWED_DL_ROOT_KEYS || isForbiddenKey(key)) continue
-
-            when (key) {
-                "address" -> clean.addProperty("address", address)
-                "port" -> clean.addProperty("port", port)
-                "network" -> clean.addProperty("network", value.asString)
-                "security" -> clean.addProperty("security", value.asString)
-                "tlsSettings" -> {
-                    if (value.isJsonObject) {
-                        val tls = JsonObject()
-                        for ((tk, tv) in value.asJsonObject.entrySet()) {
-                            if (tk in ALLOWED_DL_TLS_KEYS && !isForbiddenKey(tk)) {
-                                tls.add(tk, tv)
-                            }
-                        }
-                        // Enforce allowInsecure = false
-                        tls.addProperty("allowInsecure", false)
-                        clean.add("tlsSettings", tls)
-                    }
-                }
-                "realitySettings" -> {
-                    if (value.isJsonObject) {
-                        val reality = JsonObject()
-                        for ((rk, rv) in value.asJsonObject.entrySet()) {
-                            if (rk in ALLOWED_DL_REALITY_KEYS && !isForbiddenKey(rk)) {
-                                reality.add(rk, rv)
-                            }
-                        }
-                        clean.add("realitySettings", reality)
-                    }
-                }
-                "xhttpSettings" -> {
-                    if (value.isJsonObject) {
-                        val xhttp = JsonObject()
-                        for ((xk, xv) in value.asJsonObject.entrySet()) {
-                            if (xk == "extra" && xv.isJsonObject) {
-                                // Do not allow nested downloadSettings inside xhttpSettings.extra to prevent recursion
-                                val subExtra = sanitizeGenericObject(xv.asJsonObject)
-                                subExtra.remove("downloadSettings")
-                                xhttp.add("extra", subExtra)
-                            } else if (xk in ALLOWED_DL_XHTTP_KEYS && !isForbiddenKey(xk)) {
-                                xhttp.add(xk, xv)
-                            }
-                        }
-                        clean.add("xhttpSettings", xhttp)
-                    }
-                }
+        return try {
+            val addressElem = dlObj.get("address")
+            val address = if (addressElem != null && addressElem.isJsonPrimitive && addressElem.asJsonPrimitive.isString) {
+                addressElem.asString
+            } else {
+                return null
             }
-        }
 
-        return clean
+            // If address is blank or loopback/private/internal, drop entire downloadSettings safely
+            if (address.isBlank() || IpAddressSecurity.isPrivateOrLoopback(address)) {
+                return null
+            }
+
+            val portElem = dlObj.get("port")
+            val port = if (portElem != null && portElem.isJsonPrimitive && portElem.asJsonPrimitive.isNumber) {
+                try { portElem.asInt } catch (_: Exception) { return null }
+            } else {
+                return null
+            }
+            if (port !in 1..65535) {
+                return null
+            }
+
+            val clean = JsonObject()
+            clean.addProperty("address", address)
+            clean.addProperty("port", port)
+
+            val networkElem = dlObj.get("network")
+            val network = if (networkElem != null && networkElem.isJsonPrimitive && networkElem.asJsonPrimitive.isString) {
+                networkElem.asString
+            } else {
+                "xhttp"
+            }
+            clean.addProperty("network", network)
+
+            val secElem = dlObj.get("security")
+            val security = if (secElem != null && secElem.isJsonPrimitive && secElem.asJsonPrimitive.isString) {
+                secElem.asString.lowercase()
+            } else {
+                "tls"
+            }
+            clean.addProperty("security", security)
+
+            // tlsSettings
+            if (dlObj.has("tlsSettings") && dlObj.get("tlsSettings").isJsonObject) {
+                val tls = JsonObject()
+                for ((tk, tv) in dlObj.getAsJsonObject("tlsSettings").entrySet()) {
+                    if (tk in ALLOWED_DL_TLS_KEYS && !isForbiddenKey(tk)) {
+                        tls.add(tk, tv)
+                    }
+                }
+                tls.addProperty("allowInsecure", false)
+                clean.add("tlsSettings", tls)
+            }
+
+            // realitySettings
+            if (dlObj.has("realitySettings") && dlObj.get("realitySettings").isJsonObject) {
+                val reality = JsonObject()
+                for ((rk, rv) in dlObj.getAsJsonObject("realitySettings").entrySet()) {
+                    if (rk in ALLOWED_DL_REALITY_KEYS && !isForbiddenKey(rk)) {
+                        reality.add(rk, rv)
+                    }
+                }
+                clean.add("realitySettings", reality)
+            }
+
+            // xhttpSettings
+            if (dlObj.has("xhttpSettings") && dlObj.get("xhttpSettings").isJsonObject) {
+                val xhttp = JsonObject()
+                for ((xk, xv) in dlObj.getAsJsonObject("xhttpSettings").entrySet()) {
+                    if (xk == "extra" && xv.isJsonObject) {
+                        val subExtra = sanitizeGenericObject(xv.asJsonObject)
+                        subExtra.remove("downloadSettings")
+                        xhttp.add("extra", subExtra)
+                    } else if (xk in ALLOWED_DL_XHTTP_KEYS && !isForbiddenKey(xk)) {
+                        xhttp.add(xk, xv)
+                    }
+                }
+                clean.add("xhttpSettings", xhttp)
+            }
+
+            // P2 FIX: If security is tls, tlsSettings MUST be present. Otherwise drop downloadSettings!
+            if (security == "tls" && (!clean.has("tlsSettings") || !clean.get("tlsSettings").isJsonObject)) {
+                return null
+            }
+            // If security is reality, realitySettings MUST be present. Otherwise drop downloadSettings!
+            if (security == "reality" && (!clean.has("realitySettings") || !clean.get("realitySettings").isJsonObject)) {
+                return null
+            }
+
+            clean
+        } catch (_: Throwable) {
+            null
+        }
     }
 
     private fun calculateDepth(element: JsonElement): Int {

@@ -74,16 +74,20 @@ object VpnNotificationHelper {
     }
 
     fun showDisconnectedNotification(context: Context, reason: String? = null) {
-        ensureNotificationChannel(context)
-        val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager ?: return
-        val builder = NotificationCompat.Builder(context, CHANNEL_ID)
-            .setSmallIcon(android.R.drawable.ic_lock_lock)
-            .setContentTitle("Tunnix · Disconnected / اتصال VPN قطع شد")
-            .setContentText(reason ?: "اتصال تونل امن متوقف شد / Secure tunnel disconnected")
-            .setAutoCancel(true)
-            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
-            .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
-        nm.notify(NOTIFICATION_ID + 1, builder.build())
+        try {
+            ensureNotificationChannel(context)
+            val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager ?: return
+            val builder = NotificationCompat.Builder(context, CHANNEL_ID)
+                .setSmallIcon(android.R.drawable.ic_lock_lock)
+                .setContentTitle("Tunnix · Disconnected / اتصال VPN قطع شد")
+                .setContentText(reason ?: "اتصال تونل امن متوقف شد / Secure tunnel disconnected")
+                .setAutoCancel(true)
+                .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+                .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
+            nm.notify(NOTIFICATION_ID + 1, builder.build())
+        } catch (_: SecurityException) {
+            // Safe guard against missing POST_NOTIFICATIONS permission on Android 13+
+        } catch (_: Exception) {}
     }
 
     private fun ensureNotificationChannel(context: Context) {

@@ -11,7 +11,6 @@
 -keep class libxray.** { *; }
 -keep class libv2ray.** { *; }
 -keep class go.** { *; }
--keep class com.google.gson.** { *; }
 
 # Compose & Material Icons
 -keep class androidx.compose.material.icons.** { *; }

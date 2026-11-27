@@ -99,6 +99,10 @@ class TunnixVpnService : VpnService() {
     override fun onRevoke() {
         super.onRevoke()
         // Operating system revoked VPN permission or another VPN established
+        VpnNotificationHelper.showDisconnectedNotification(
+            this,
+            "دسترسی VPN توسط سیستم یا برنامه دیگر لغو شد / VPN permission revoked"
+        )
         stopTunnel(targetError = null)
     }
 
@@ -300,6 +304,14 @@ class TunnixVpnService : VpnService() {
 
     override fun onDestroy() {
         super.onDestroy()
+        val wasConnected = tunDescriptor != null || VpnTunnelManager.vpnState.value is VpnState.Connected
+        val isExplicitStop = VpnTunnelManager.vpnState.value is VpnState.Disconnected
+        if (wasConnected && !isExplicitStop) {
+            VpnNotificationHelper.showDisconnectedNotification(
+                this,
+                "اتصال تونل امن متوقف شد / Secure tunnel disconnected unexpectedly"
+            )
+        }
         transitionJob?.cancel()
         unregisterNetworkCallback()
         XrayCoreController.onUnexpectedShutdown = null

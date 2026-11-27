@@ -15,7 +15,7 @@ object DownloadSettingsResolver {
      * 3) null for all other cases.
      */
     fun resolve(server: ServerConfig, custom: DownloadSettingsConfig?): DownloadSettingsConfig? {
-        if (server.protocol != ProtocolType.VLESS) return null
+        if (server.protocol != ProtocolType.VLESS || server.network != NetworkType.XHTTP) return null
 
         // 1) User explicitly defined this port in custom configuration and it is enabled
         if (custom != null && custom.isEnabled &&
